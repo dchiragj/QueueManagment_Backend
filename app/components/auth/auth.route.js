@@ -95,6 +95,9 @@ router.post(
 router.post(
   '/verify',
   [
+    (req, res, next) => {
+      next();
+    },
     passport.authenticate('jwt', { session: false, failWithError: true }),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
@@ -103,5 +106,4 @@ router.post(
     AuthController.verifyEmailCode(req, res);
   },
 );
-
 module.exports = router;

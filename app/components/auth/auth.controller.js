@@ -22,7 +22,7 @@ class AuthController {
   /**
    * @description signup new user
    */
-  async signUp(req, res) {
+  async   signUp(req, res) {
     try {
       const user = await UserService.addNewUser(req.body);
       if (user) {
@@ -75,7 +75,7 @@ class AuthController {
   async verificationCode(req, res) {
     try {
       const user = req.user;
-      const userDetails = await UserService.getUserRaw(user._id);
+      const userDetails = await UserService.getUserRaw(user.id);
       if (userDetails) {
         await UserService.sendVerificationCode(userDetails);
         return createResponse(res, 'ok', 'Verification code sent.');
@@ -87,22 +87,27 @@ class AuthController {
   }
 
   async verifyEmailCode(req, res) {
-    try {
-      const user = req.user;
-      const { code } = req.body;
-      if (!code) {
-        return createError(res, { message: 'Code is required' });
-      }
-      const result = await UserService.verifyEmailCode(user._id, code);
-      if (result) {
-        return createResponse(res, 'ok', 'Verified successfully.');
-      }
-
-      createError(res, { message: 'Verification failed, please re-enter or request another code' });
-    } catch (e) {
-      return createError(res, e);
+  try {
+    const user = req.user; // JWT payload
+    const { code } = req.body;
+    if (!code) {
+      return createError(res, { message: "Code is required" });
     }
+
+    const result = await UserService.verifyEmailCode(user.id, code);
+
+    if (result) {
+      return createResponse(res, "ok", "Verified successfully.");
+    }
+
+    return createError(res, {
+      message: "Verification failed, please re-enter or request another code",
+    });
+  } catch (e) {
+    return createError(res, e);
   }
+}
+
 }
 
 const authController = new AuthController();

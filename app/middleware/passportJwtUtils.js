@@ -9,7 +9,8 @@ module.exports = (passport) => {
     new JwtStrategy(opts, async (jwtPayload, done) => {
       try {
         const User = require('../models/user');
-        const user = await User.findById(jwtPayload.id);
+        // const user = await User.findById(jwtPayload.id);
+        const user = await User.findOne({ where: { Id: jwtPayload.id } });
         if (!user) {
           return done(null, false);
         }

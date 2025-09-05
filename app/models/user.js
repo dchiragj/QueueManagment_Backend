@@ -1,165 +1,104 @@
 const { hashSync, compareSync, genSaltSync } = require('bcrypt-nodejs');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
+const sequelize = require('../config/database');
+const { DataTypes } = require('sequelize');
 const { EXPRESS_SECRET } = require('../config/env');
+const moment = require('moment');
 
-const userSchema = new mongoose.Schema(
-  {
-    firstName: {
-      type: String,
-      required: true,
+// Define the User model
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  firstName: DataTypes.STRING,
+  lastName: DataTypes.STRING,
+  email: {
+    type: DataTypes.STRING,
+    unique: true,
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+  },
+  mobileNumber: DataTypes.STRING,
+  isEmailVerified: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  isOnboarding: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+  verificationCode: DataTypes.STRING,
+
+  // ✅ Fix here: use NOW or Date object instead of string
+  createdAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW, // Sequelize will handle it
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },role: {
+  type: DataTypes.STRING(50),
+  allowNull: false,
+  defaultValue: 'user',  // or whatever makes sense in your app
+},
+
+}, {
+  hooks: {
+    beforeCreate: (user) => {
+      if (user.password) {
+        user.password = hashSync(user.password, genSaltSync(8));
+      }
+      user.createdAt = moment.utc().toDate(); // ✅ JS Date
+      user.updatedAt = moment.utc().toDate();
     },
-    lastName: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    normalized_email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    mobileNumber: {
-      type: String,
-      required: true,
-    },
-    password: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    extra1: {
-      type: String,
-      required: true,
-    },
-    verificationCode: {
-      type: String,
-    },
-    isEmailVerified: {
-      type: Boolean,
-    },
-    isOnboarding: {
-      type: Boolean,
-    },
-    role: {
-      type: String,
-      enum: ['both', 'merchant', 'customer'],
-      required: true,
-    },
-    address: {
-      type: String,
-    },
-    profile_url: {
-      type: String,
-    },
-    gender: {
-      type: String,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    resetPasswordToken: {
-      type: String,
-      required: false,
-    },
-    resetPasswordExpires: {
-      type: Number,
-      required: false,
-    },
-    lastLogin: {
-      type: Date,
-    },
-    ip: {
-      type: String,
+    beforeUpdate: (user) => {
+      if (user.password) {
+        user.password = hashSync(user.password, genSaltSync(8));
+      }
+      user.updatedAt = moment.utc().toDate(); // ✅ JS Date
     },
   },
-  { timestamps: true, usePushEach: true }, // UTC format
-);
-
-userSchema.pre('save', function(next) {
-  if (this.isModified('password')) {
-    this.extra1 = this.password;
-    this.password = this._hashPassword(this.password);
-    return next();
-  }
-  return next();
 });
 
-userSchema.pre('findOneAndUpdate', function(next) {
-  const query = this;
-  const update = query.getUpdate();
-  if (update.password) {
-    update.extra1 = update.password;
-    update.password = hashSync(update.password, genSaltSync(8), null);
-    return next();
-  }
-  return next();
-});
-
-userSchema.methods = {
-  authenticateUser(password) {
-    return compareSync(password, this.password);
-  },
-
-  _hashPassword(password) {
-    return hashSync(password, genSaltSync(8), null);
-  },
-
-  getUserName() {
-    return this.firstName + ' ' + this.lastName;
-  },
-
-  createToken() {
-    return jwt.sign(
-      {
-        id: this._id,
-        name: `${this.getUserName()}`,
-        email: this.email,
-        role: this.role,
-      },
-      EXPRESS_SECRET,
-      { expiresIn: 5184000 },
-    );
-  },
-
-  toAuthJSON() {
-    return {
-      id: this._id,
-      firstName: this.firstName,
-      lastName: this.lastName,
-      name: `${this.getUserName()}`,
-      email: this.email,
-      mobileNumber: this.mobileNumber,
-      isActive: this.isActive,
-      role: this.role,
-      profile_url: this.profile_url,
-      token: `${this.createToken()}`,
-      verificationRequired: !this.isEmailVerified,
-      onboardingRequired: this.isOnboarding,
-    };
-  },
-
-  toJSON() {
-    return {
-      id: this._id,
-      firstName: this.firstName,
-      lastName: this.lastName,
-      name: `${this.getUserName()}`,
-      email: this.email,
-      mobileNumber: this.mobileNumber,
-      isActive: this.isActive,
-      role: this.role,
-      address: this.address,
-      profile_url: this.profile_url,
-      gender: this.gender,
-      isEmailVerified: this.isEmailVerified,
-      onboardingRequired: this.isOnboarding,
-    };
-  },
+// Compare password
+User.prototype.authenticateUser = function(password) {
+  return compareSync(password, this.password);
 };
-module.exports = mongoose.model('users', userSchema);
+
+// Create JWT
+User.prototype.createToken = function() {
+  return jwt.sign(
+    {
+      id: this.id,
+      name: `${this.firstName} ${this.lastName}`,
+      email: this.email,
+      role: this.role,
+    },
+    EXPRESS_SECRET,
+    { expiresIn: 5184000 }
+  );
+};
+
+User.prototype.toAuthJSON = function() {
+  return {
+    id: this.id,
+    firstName: this.firstName,
+    lastName: this.lastName,
+    name: `${this.firstName} ${this.lastName}`,
+    email: this.email,
+    mobileNumber: this.mobileNumber,
+    isActive: this.isActive,
+    role: this.role,
+    profile_url: this.profile_url,
+    token: `${this.createToken()}`,
+    verificationRequired: !this.isEmailVerified,
+    onboardingRequired: this.isOnboarding,
+  };
+};
+
+module.exports = User;

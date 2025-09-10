@@ -68,18 +68,16 @@
 // });
 // app/server.js
 // app/server.jsconst path = require('path');
-// app/server.js
-const path = require('path');
+// app/server.jsconst path = require('path');const path = require('path'); // Add this line
 const http = require('http');
 const express = require('express');
-const favicon = require('express-favicon');
 const chalk = require('chalk');
+const fs = require('fs').promises; // For file operations if needed
 const middlewares = require('./middleware');
 const routes = require('./routes');
 const env = require('./config/env');
 const sequelize = require('./config/database');
 const logErrorService = require('./utils/errorLog/log');
-
 
 const app = express();
 const server = http.Server(app);
@@ -89,11 +87,6 @@ middlewares.init(app);
 
 // Initialize routes
 routes(app);
-
-// Serve static files and favicon
-const buildPath = path.join(__dirname, '../../', 'build');
-app.use(favicon(path.join(buildPath, 'favicon.ico')));
-app.use(express.static(buildPath));
 
 // API Health check
 app.all('/api/health-check', (req, res) => {
@@ -105,19 +98,15 @@ app.all('/api/*', (req, res) => {
   return res.status(400).json({ status: 400, message: 'Bad Request' });
 });
 
-// Serve React app for all other routes
-app.all('/*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
-
 // Error handler
 app.use(logErrorService);
 
 // Connect to SQL Server and start the server
-sequelize.authenticate()
+sequelize
+  .authenticate()
   .then(() => {
     console.log('%s SQL Server connected', chalk.green('✓'));
-    return sequelize.sync({ force: false }); // Sync models (force: false to avoid dropping tables)
+    return sequelize.sync({ force: false });
   })
   .then(() => {
     server.listen(env.PORT, () => {

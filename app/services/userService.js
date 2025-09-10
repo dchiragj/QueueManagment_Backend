@@ -4,6 +4,9 @@ const constants = require('../config/constants');
 const filteredBody = require('../utils/filteredBody');
 const sendEmailService = require('../utils/sendemail');
 const { ADMIN_EMAIL, SMTP_USERNAME } = require('../config/env');
+const { Op } = require('sequelize');
+const bcrypt = require('bcryptjs');
+const sequelize = require( '../config/database' );
 
 const get6DigCode = () => {
   return Math.floor(100000 + Math.random() * 900000);
@@ -50,7 +53,7 @@ async getUserRaw(id) {
       .toUpperCase()
       .trim();
     const user = await User.findOne({
-      $or: [{ email: username }, { normalized_email: normalized_username }],
+      $or: [{ email: username }, { NormalizedEmail: normalized_username }],
     });
     if (user) return user.toAuthJSON();
 
@@ -62,28 +65,39 @@ async getUserRaw(id) {
       .toUpperCase()
       .trim();
     const user = await User.findOne({
-      $or: [{ email: username }, { normalized_email: normalized_username }],
+      $or: [{ email: username }, { NormalizedEmail: normalized_username }],
     });
     return user;
   }
 
-  async validateUserCredential(username, password, role) {
-    const normalized_username = String(username)
-      .toUpperCase()
-      .trim();
+// UserService માં
+async validateUserCredential(username, password, role) {
+  try {
+    const normalized_username = String(username).toUpperCase().trim();
     const user = await User.findOne({
-      $or: [{ email: username }, { normalized_email: normalized_username }],
+      where: {
+        [Op.or]: [
+          { email: username },
+          { NormalizedEmail: normalized_username }
+        ]
+      }
     });
 
-    if (
-      user &&
-      user.authenticateUser(password) &&
-      (user.role === role || user.role === constants.USER_ROLE_TYPES.BOTH)
-    ) {
+    if (!user) {
+      console.log('User not found');
+      return null;
+    }
+    const isValid = await user.authenticateUser(password);
+    
+    if (isValid && (user.dataValues.role === role || user.dataValues.role === 'both')) {
       return user.toAuthJSON();
     }
     return null;
+  } catch (error) {
+    console.error('Validation error:', error);
+    return null;
   }
+}
 
   // Send Success Emails
 // userService.js
@@ -152,7 +166,7 @@ console.log(clientMsg,"clientMsg");
   //             ...body,
   //             name: body.firstName + ' ' + body.lastName,
   //             extra1: body.password,
-  //             normalized_email: String(body.email).toUpperCase(),
+  //             NormalizedEmail: String(body.email).toUpperCase(),
   //             verificationCode: verificationCode,
   //             isEmailVerified: false,
   //             isOnboarding: true,
@@ -195,7 +209,7 @@ addNewUser(obj) {
         ...body,
         name: `${body.firstName} ${body.lastName}`,
         extra1: body.password,  // This is equivalent to `password` field
-        normalized_email: body.email.toUpperCase(),
+        NormalizedEmail: body.email.toUpperCase(),
         verificationCode: verificationCode,
         isEmailVerified: false,
         isOnboarding: true,
@@ -210,84 +224,271 @@ addNewUser(obj) {
   });
 }
 
+// async forgotPassword(username) {
+//   console.log(username,"username");
+  
+//   const normalized_username = String(username).toUpperCase().trim();
+//   const token = crypto.randomBytes(32).toString("hex");
+
+//   const query = {
+//     $or: [{ email: username }, { NormalizedEmail: normalized_username }],
+//   };
+
+//   console.log(query,"query");
+  
+//   const userResult = await User.findOne({ where: query });  // 👈 fix here
+
+//   console.log(userResult,"userRe");
+  
+//   if (!userResult) return false;
+
+//   // update token + expiry
+//   // await User.findOneAndUpdate(query, {
+//   //   resetPasswordToken: token,
+//   //   resetPasswordExpires: Date.now() + 3600000, // 1h
+//   // });
+// await User.update(
+//   {
+//     resetPasswordToken: token,
+//     resetPasswordExpires: Date.now() + 3600000, // 1h
+//   },
+//   {
+//     where: query,
+//   }
+// );
+//   const resetUrl = `https://dashboard.queue.app/reset-password?token=${token}&email=${userResult.email}`;
+
+//   console.log(resetUrl,"reseurl");
+  
+//   const clientMsg = { 
+//     to: userResult.email,
+//     from: SMTP_USERNAME, // ✅ must match auth user
+//     subject: "Reset Queue password",
+//     text: `Hi ${userResult.firstName}, use the link to reset your password: ${resetUrl}`,
+//     html: `Hi ${userResult.firstName},<br/>
+//            <a href="${resetUrl}">Click here</a> to reset your password.<br/><br/>Queue Team`,
+//   };
+//   console.log(clientMsg,"clientMsg");
+  
+
+//   // ✅ await & propagate error
+//   const sent = await sendEmailService.send(
+//     clientMsg.to,
+//     clientMsg.subject,
+//     clientMsg.text,
+//     clientMsg.html
+//   );
+//   console.log(sent,"sent");
+  
+
+//   if (!sent) {
+//     throw new Error("Failed to send reset email");
+//   }
+
+//   return true;
+// }
+
+// async forgotPassword(username) {
+//   const normalized_username = String(username).trim();  
+//   const token = crypto.randomBytes(32).toString("hex");
+
+//   // Use Sequelize.Op.or for the OR condition
+//   const query = {
+//     [Op.or]: [
+//       { email: username },
+//       { NormalizedEmail: normalized_username },
+//     ],
+//   };
+//   // Find user with corrected query
+//   const userResult = await User.findOne({ where: query });
+//   if (!userResult) return false;
+
+//   // Update token and expiry with corrected query
+//   await User.update(
+//     {
+//       resetPasswordToken: token,
+//       resetPasswordExpires: Date.now() + 3600000, // 1h
+//     },
+//     {
+//       where: query,
+//     }
+//   );
+
+
+//   const resetUrl = `${process.env.RESET_PASS_DOMAIN}/reset-password?token=${token}&email=${userResult.email}`;
+
+//   const clientMsg = {
+//     to: userResult.email,
+//     from: SMTP_USERNAME, // Must match auth user
+//     subject: "Reset Queue password",
+//     text: `Hi ${userResult.firstName}, use the link to reset your password: ${resetUrl}`,
+//     html: `Hi ${userResult.firstName},<br/>
+//            <a href="${resetUrl}">Click here</a> to reset your password.<br/><br/>Queue Team`,
+//   };
+//   // Send email
+//   const sent = await sendEmailService.send(
+//     clientMsg.to,
+//     clientMsg.subject,
+//     clientMsg.text,
+//     clientMsg.html
+//   );
+//   if (!sent) {
+//     throw new Error("Failed to send reset email");
+//   }
+
+//   return true;
+// }
+//   async resetPassword(username, password, token) {    
+//     const normalized_username = String(username)
+//       .toUpperCase()
+//       .trim();
+
+//     const query = {
+//       $or: [{ email: username }, { NormalizedEmail: normalized_username }],
+//       $and: [{ resetPasswordToken: token }, { resetPasswordExpires: { $gt: Date.now() } }],
+//     };
+//     const userResult = await User.findOne(query);
+//     if (userResult) {
+//       const promisResult = await new Promise(async (resolve, reject) => {
+//         User.findOneAndUpdate(
+//           query,
+//           { password, $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 } },
+//           { new: true },
+//           async (err) => {
+//             if (err) reject(err);
+//             return resolve(true);
+//           },
+//         );
+//       });
+//       return promisResult;
+//     }
+//     throw Error('Invalid token');
+//   }
 async forgotPassword(username) {
-  console.log(username,"username");
-  
-  const normalized_username = String(username).toUpperCase().trim();
-  const token = crypto.randomBytes(32).toString("hex");
+  try {
+    const normalized_username = String(username).trim().toUpperCase();
+    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-  const query = {
-    $or: [{ email: username }, { normalized_email: normalized_username }],
-  };
+    const query = {
+      [Op.or]: [
+        { email: username },
+        { NormalizedEmail: normalized_username },
+      ],
+    };
 
-  const userResult = await User.findOne(query);
-  if (!userResult) return false;
+    const userResult = await User.findOne({ where: query });
+    if (!userResult) {
+      return false;
+    }
 
-  // update token + expiry
-  await User.findOneAndUpdate(query, {
-    resetPasswordToken: token,
-    resetPasswordExpires: Date.now() + 3600000, // 1h
-  });
+  const userotp=  await User.update(
+      {
+    Otp: otp,
+    OtpExpiry: sequelize.literal(
+      `'${otpExpiry.toISOString().slice(0, 23).replace('T', ' ')}'`
+    ), // ✅ MSSQL safe format
+  },
 
-  const resetUrl = `https://dashboard.queue.app/reset-password?token=${token}&email=${userResult.email}`;
+  { where: query }
+    );
 
-  console.log(resetUrl,"reseurl");
-  
-  const clientMsg = { 
-    to: userResult.email,
-    from: SMTP_USERNAME, // ✅ must match auth user
-    subject: "Reset Queue password",
-    text: `Hi ${userResult.firstName}, use the link to reset your password: ${resetUrl}`,
-    html: `Hi ${userResult.firstName},<br/>
-           <a href="${resetUrl}">Click here</a> to reset your password.<br/><br/>Queue Team`,
-  };
-  console.log(clientMsg,"clientMsg");
-  
+    const clientMsg = {
+      to: userResult.email,
+      from: process.env.SMTP_USERNAME,
+      subject: 'Your OTP for Password Reset',
+      text: `Hi ${userResult.firstName}, your OTP for password reset is: ${otp}. It expires in 10 minutes.`,
+      html: `Hi ${userResult.firstName},<br/>
+             <p>Your OTP for password reset is: <strong>${otp}</strong></p>
+             <p>This OTP expires in 10 minutes. Please do not share it with anyone.</p><br/>Queue Team`,
+    };
 
-  // ✅ await & propagate error
-  const sent = await sendEmailService.send(
-    clientMsg.to,
-    clientMsg.subject,
-    clientMsg.text,
-    clientMsg.html
-  );
-  console.log(sent,"sent");
-  
+    const sent = await sendEmailService.send(
+      clientMsg.to,
+      clientMsg.subject,
+      clientMsg.text,
+      clientMsg.html
+    );
 
-  if (!sent) {
-    throw new Error("Failed to send reset email");
+    if (!sent) throw new Error('Failed to send OTP email');
+    return { success: true, email: userResult.email };
+  } catch (error) {
+    console.error('forgotPassword error:', error);
+    throw error;
   }
-
-  return true;
 }
 
 
-  async resetPassword(username, password, token) {
-    const normalized_username = String(username)
-      .toUpperCase()
-      .trim();
-
-    const query = {
-      $or: [{ email: username }, { normalized_email: normalized_username }],
-      $and: [{ resetPasswordToken: token }, { resetPasswordExpires: { $gt: Date.now() } }],
-    };
-    const userResult = await User.findOne(query);
-    if (userResult) {
-      const promisResult = await new Promise(async (resolve, reject) => {
-        User.findOneAndUpdate(
-          query,
-          { password, $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 } },
-          { new: true },
-          async (err) => {
-            if (err) reject(err);
-            return resolve(true);
-          },
-        );
-      });
-      return promisResult;
+async verifyOtp(email, otp) {
+  try {
+    const normalized_username = String(email).toUpperCase().trim();
+    // Use Sequelize literal to handle date comparison properly
+    const userResult = await User.findOne({
+      where: {
+        [Op.and]: [
+          { [Op.or]: [{ email }, { NormalizedEmail: normalized_username }] },
+          { Otp: otp },
+          sequelize.where(
+            sequelize.col('OtpExpiry'),
+            { [Op.gt]: sequelize.fn('GETDATE') }
+          )
+        ],
+      },
+    });
+    if (!userResult) {
+      throw new Error("Invalid or expired OTP");
     }
-    throw Error('Invalid token');
+
+    return { success: true, userId: userResult.id };
+  } catch (error) {
+    console.error("verifyOtp error:", error);
+    throw error;
   }
+}
+
+
+async resetPassword(email, password) {
+  try {
+    // Fetch user to validate OtpExpiry
+    const userResult = await User.findOne({
+      where: { email: email },
+    });
+
+    if (!userResult) {
+      throw new Error('User not found');
+    }
+
+    // Validate OtpExpiry
+    const currentTime = new Date();
+    if (!userResult.OtpExpiry || userResult.OtpExpiry < currentTime) {
+      throw new Error('OTP has expired or is not valid');
+    }
+
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Perform update with only password, leaving Otp and OtpExpiry unchanged
+    const [updated] = await User.update(
+      {
+        password: hashedPassword,
+      },
+      { where: { email: email },
+        transaction: null, // Disabled for now, enable if needed
+      }
+    );
+
+    if (updated === 0) {
+      const postUpdateUser = await User.findOne({ where: { email: email } });
+      console.log('Post-update user data:', postUpdateUser?.toJSON() || 'Record not found');
+      throw new Error('Failed to update password, possible database constraint or schema issue');
+    }
+
+    return { status: 'ok', message: 'Password updated successfully' };
+  } catch (error) {
+    console.error('resetPassword error:', error.message, 'Stack:', error.stack);
+    throw error;
+  }
+}
 
   // async verifyEmailCode(user_id, code) {
   //   console.log(user_id,"code",code);

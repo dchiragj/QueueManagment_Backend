@@ -2,7 +2,8 @@ const { hashSync, genSaltSync } = require('bcrypt-nodejs');
 const Desk = require('../models/desk');
 const { getNextNumber } = require('../utils/helpers');
 const { isEmpty } = require('../utils/validator');
-const RepositoryWithUserService = require('./RepositoryWithUserService');
+const RepositoryWithUserService = require( './repositoryWithUserService' );
+// const RepositoryWithUserService = require('./RepositoryWithUserService');
 
 const setDeskParams = async (queueId, desks) => {
   desks.forEach((item) => {

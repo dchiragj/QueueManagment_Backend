@@ -5,26 +5,28 @@ class AuthController {
   /**
    * @description Sign in with email and password
    */
-  async signIn(req, res) {
-    try {
-      const { username, password, role } = req.body;
-      const user = await UserService.validateUserCredential(username, password, role);
-      if (user) {
-        createResponse(res, 'ok', 'Login successful', user);
-      } else {
-        createError(res, {}, { message: 'Invalid Credentials' });
-      }
-    } catch (e) {
-      createError(res, e);
+async signIn(req, res) {
+  try {
+    const { username, password, role } = req.body;
+  
+    const user = await UserService.validateUserCredential(username, password, role);
+    
+    if (user) {
+      createResponse(res, 'ok', 'Login successful', user);
+    } else {
+      createError(res, {}, { message: 'Invalid Credentials' });
     }
+  } catch (e) {
+    createError(res, e);
   }
+}
 
   /**
    * @description signup new user
    */
-  async   signUp(req, res) {
+  async  signUp(req, res) {
     try {
-      const user = await UserService.addNewUser(req.body);
+      const user = await UserService.addNewUser(req.body); 
       if (user) {
         // await UserService.sendVerificationCode(user);
         createResponse(res, 'ok', 'Signup successful', user);
@@ -39,35 +41,55 @@ class AuthController {
   /**
    * @description forgot password
    */
-  async forgotPassword(req, res) {
+async forgotPassword(req, res) {
     try {
       const { email } = req.body;
-      const user = await UserService.forgotPassword(email);
-      
-      if (user) {
-        console.log(user,"user");
-        createResponse(res, 'ok', 'Password sent to email');
+      const result = await UserService.forgotPassword(email);
+
+      if (result.success) {
+        console.log('Forgot password success for:', email);
+        createResponse(res, 'ok', 'OTP sent to your email', { email: result.email });
       } else {
-        createError(res, {}, { message: 'Unable to send reset password email,please try again' });
+        createError(res, {}, { message: 'Unable to send OTP, please try again' });
       }
     } catch (e) {
+      console.error('Forgot password error:', e);
       createError(res, e);
     }
   }
 
-  /**
-   * @description reset password
-   */
+  async verifyOtp(req, res) {
+    try {
+      const { email, otp } = req.body;
+      if (!email || !otp) {
+        return createError(res, {}, { message: 'Email and OTP are required' });
+      }
+      const result = await UserService.verifyOtp(email, otp);
+      if (result.success) {
+        createResponse(res, 'ok', 'OTP verified successfully', { userId: result.userId });
+      } else {
+        createError(res, {}, { message: 'Invalid or expired OTP' });
+      }
+    } catch (e) {
+      console.error('Verify OTP error:', e);
+      createError(res, e);
+    }
+  }
+
   async resetPassword(req, res) {
     try {
-      const { email, password, token } = req.body;
-      const user = await UserService.resetPassword(email, password, token);
+      const { email, password,otp } = req.body;
+      if (!email || !password || !otp) {
+        return createError(res, {}, { message: 'email , password and otp are required' });
+      }
+      const user = await UserService.resetPassword(email, password);
       if (user) {
         createResponse(res, 'ok', 'Password updated successfully');
       } else {
-        createError(res, {}, { message: 'Unable to reset password,please try again' });
+        createError(res, {}, { message: 'Unable to reset password, please try again' });
       }
     } catch (e) {
+      console.error('Reset password error:', e);
       createError(res, e);
     }
   }

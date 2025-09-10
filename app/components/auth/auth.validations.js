@@ -91,6 +91,29 @@ class AuthenticationValidator {
       next();
     }
   }
+
+  verifyOtp(req, res, next) {
+  const errors = {};
+  const { email, otp } = req.body;
+
+  if (isEmpty(email)) {
+    errors.email = 'Email is required';
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.email = 'Please provide a valid email address';
+  }
+
+  if (isEmpty(otp)) {
+    errors.otp = 'OTP is required';
+  } else if (!/^\d{6}$/.test(otp)) {
+    errors.otp = 'OTP must be a 6-digit number';
+  }
+
+  if (Object.keys(errors).length > 0) {
+    createValidationResponse(res, errors);
+  } else {
+    next();
+  }
+}
 }
 
 const validationObj = new AuthenticationValidator();

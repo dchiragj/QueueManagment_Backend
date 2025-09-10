@@ -1,9 +1,10 @@
-const { hashSync, compareSync, genSaltSync } = require('bcrypt-nodejs');
+const { hashSync, compareSync, genSaltSync ,compare } = require('bcrypt-nodejs');
 const jwt = require('jsonwebtoken');
 const sequelize = require('../config/database');
 const { DataTypes } = require('sequelize');
 const { EXPRESS_SECRET } = require('../config/env');
 const moment = require('moment');
+const bcrypt = require('bcryptjs');
 
 // Define the User model
 const User = sequelize.define('User', {
@@ -17,6 +18,11 @@ const User = sequelize.define('User', {
   email: {
     type: DataTypes.STRING,
     unique: true,
+  },
+  NormalizedEmail: { 
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false,
   },
   password: {
     type: DataTypes.STRING(255),
@@ -33,15 +39,24 @@ const User = sequelize.define('User', {
   },
   verificationCode: DataTypes.STRING,
 
-  // ✅ Fix here: use NOW or Date object instead of string
   createdAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW, // Sequelize will handle it
   },
+  Otp:{
+    type:DataTypes.NUMBER,
+    defaultValue:null,
+      allowNull: true,
+  },
+  OtpExpiry: {
+  type: DataTypes.DATE,
+  allowNull: true,
+},
   updatedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
-  },role: {
+  },
+  role: {
   type: DataTypes.STRING(50),
   allowNull: false,
   defaultValue: 'user',  // or whatever makes sense in your app
@@ -49,9 +64,12 @@ const User = sequelize.define('User', {
 
 }, {
   hooks: {
-    beforeCreate: (user) => {
+    beforeCreate: (user) => {  
       if (user.password) {
         user.password = hashSync(user.password, genSaltSync(8));
+      }
+      if (user.email) {
+        user.NormalizedEmail = user.email.toUpperCase().trim(); // Set NormalizedEmail
       }
       user.createdAt = moment.utc().toDate(); // ✅ JS Date
       user.updatedAt = moment.utc().toDate();
@@ -60,14 +78,24 @@ const User = sequelize.define('User', {
       if (user.password) {
         user.password = hashSync(user.password, genSaltSync(8));
       }
+      if (user.email) {
+        user.NormalizedEmail = user.email.toUpperCase().trim(); // Update NormalizedEmail
+      }
       user.updatedAt = moment.utc().toDate(); // ✅ JS Date
     },
   },
 });
 
 // Compare password
-User.prototype.authenticateUser = function(password) {
-  return compareSync(password, this.password);
+// Try async approach instead
+User.prototype.authenticateUser = async function(password) {
+  try {
+    const isMatch = await bcrypt.compare(password, this.password);
+    return isMatch;
+  } catch (error) {
+    console.error('Password comparison error:', error);
+    return false;
+  }
 };
 
 // Create JWT

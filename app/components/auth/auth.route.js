@@ -64,10 +64,14 @@ router.post('/forgot-password', AuthValidations.forgotPassword, (req, res) => {
  * @returns JSON
  * @access public
  */
-router.post('/reset-password', AuthValidations.resetPassword, (req, res) => {
+router.post('/reset-password',  (req, res) => {
   AuthController.resetPassword(req, res);
 });
-
+router.post('/verify-otp', AuthValidations.verifyOtp, (req, res) => {
+  console.log("verify-otp");
+  
+  AuthController.verifyOtp(req, res);
+});
 /**
  * @route POST api/auth/verification-code
  * @description verification code

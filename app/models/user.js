@@ -5,7 +5,7 @@ const { DataTypes } = require('sequelize');
 const { EXPRESS_SECRET } = require('../config/env');
 const moment = require('moment');
 const bcrypt = require('bcryptjs');
-
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8000';
 // Define the User model
 const User = sequelize.define('User', {
   id: {
@@ -29,6 +29,12 @@ const User = sequelize.define('User', {
     allowNull: false,
   },
   mobileNumber: DataTypes.STRING,
+  address: DataTypes.STRING,
+  gender: DataTypes.STRING,
+   ProfileUrl: {
+    type: DataTypes.STRING, // Added for profile image
+    allowNull: true,
+  },
   isEmailVerified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
@@ -49,9 +55,9 @@ const User = sequelize.define('User', {
       allowNull: true,
   },
   OtpExpiry: {
-  type: DataTypes.DATE,
-  allowNull: true,
-},
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   updatedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
@@ -113,6 +119,9 @@ User.prototype.createToken = function() {
 };
 
 User.prototype.toAuthJSON = function() {
+  const profileUrl = this.ProfileUrl
+    ? `${BASE_URL}/uploads/${this.ProfileUrl}`
+    : null;
   return {
     id: this.id,
     firstName: this.firstName,
@@ -122,7 +131,7 @@ User.prototype.toAuthJSON = function() {
     mobileNumber: this.mobileNumber,
     isActive: this.isActive,
     role: this.role,
-    profile_url: this.profile_url,
+    ProfileUrl: profileUrl,
     token: `${this.createToken()}`,
     verificationRequired: !this.isEmailVerified,
     onboardingRequired: this.isOnboarding,

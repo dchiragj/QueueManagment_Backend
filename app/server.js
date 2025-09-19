@@ -78,9 +78,10 @@ const routes = require('./routes');
 const env = require('./config/env');
 const sequelize = require('./config/database');
 const logErrorService = require('./utils/errorLog/log');
-
+const path = require('path');
 const app = express();
 const server = http.Server(app);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Initialize middlewares
 middlewares.init(app);

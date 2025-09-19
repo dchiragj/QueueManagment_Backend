@@ -5,6 +5,7 @@ const passport = require('passport');
 const PassportErrorHandler = require('../../middleware/passportErrorResponse');
 const UserController = require('./user.controller');
 const UserValidations = require('./user.validations');
+const upload = require( '../../../upload' );
 
 /**
  * @route POST api/user/me
@@ -36,11 +37,20 @@ router.post(
     passport.authenticate('jwt', { session: false, failWithError: true }),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
+    upload.single('profileImage'),
+    (req, res, next) => {
+      if (req.fileValidationError) {
+        console.error('Multer error:', req.fileValidationError.message);
+        return res.status(400).json({ message: req.fileValidationError.message });
+      }
+      console.log('Request body:', req.body, 'File:', req.file); // Debug
+      next();
+    },
+    UserValidations.updateProfile,
   ],
-  UserValidations.updateProfile,
   (req, res) => {
     UserController.updateUser(req, res);
-  },
+  }
 );
 
 module.exports = router;

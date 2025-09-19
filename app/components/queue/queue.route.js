@@ -13,7 +13,7 @@ const validations = require('./queue.validations');
  * @access public
  */
 router.get(
-  '/',
+  '/list',
   [
     passport.authenticate('jwt', { session: false, failWithError: true }),
     PassportErrorHandler.success,

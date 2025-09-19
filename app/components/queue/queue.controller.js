@@ -11,9 +11,15 @@ class QueueController {
    * @description get queue list
    */
   async getQueueList(req, res) {
+    console.log("usergetQueueList");
+    
     try {
       const { user } = req;
+      console.log(user,"usergetQueueList");
+      
       const { category, merchantId, start_date, end_date, coordinates } = req.query;
+      console.log(category, merchantId, start_date, end_date, coordinates,"requry");
+      
       // console.log('req.query', req.query);
       const items = await service.getByFilter(category, merchantId, start_date, end_date, coordinates);
       if (items) return createResponse(res, 'ok', 'List', items);

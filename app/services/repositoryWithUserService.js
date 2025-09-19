@@ -52,6 +52,8 @@ class RepositoryWithUserService {
   }
 
   async create(userId, payload) {
+    console.log(this.collection,"this");
+    
     try {
       if (!payload) return;
 

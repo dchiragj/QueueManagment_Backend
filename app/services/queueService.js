@@ -13,37 +13,38 @@ const validateQueueInputs = (queue) => {
     else if (!queue.category) throw Error('Queue Category is required');
     else if (!queue.description) throw Error('Description is required');
     // else if (!queue.status) throw Error('Status is required');
-    else if (!queue.noOfDesk || queue.noOfDesk <= 0 || queue.noOfDesk > 26)
-      throw Error('NoOfDesk is required and must be between 1 and 26');
-    else if (!queue.deskDetails || queue.deskDetails.length === 0) throw Error('Atleast one desk detail is required');
-    else if (queue.deskDetails.length !== queue.noOfDesk)
-      throw Error('Need Desk details for all the no of Desks specified');
-    else if (
-      queue.deskDetails.length !==
-      queue.deskDetails.filter((value, index, self) => self.findIndex((x) => x.username === value.username) === index)
-        .length
-    ) {
-      throw Error('Desk username must be unique');
-    } else if (!queue.problems || queue.problems.length === 0) throw Error('Atleast one problem selection is required');
-    else if (
-      queue.problems.length !==
-      queue.problems.filter(
-        (value, index, self) =>
-          self.findIndex((x) => userFriendlyString(String(x)) === userFriendlyString(String(value))) === index,
-      ).length
-    ) {
-      throw Error(`Problems must be unique`);
-    } else if (!queue.solutions || queue.solutions.length === 0)
-      throw Error('Atleast one solution selection is required');
-    else if (
-      queue.solutions.length !==
-      queue.solutions.filter(
-        (value, index, self) =>
-          self.findIndex((x) => userFriendlyString(String(x)) === userFriendlyString(String(value))) === index,
-      ).length
-    ) {
-      throw Error('solutions must be unique');
-    } else if (!queue.start_date) throw Error('Start date is required');
+    // else if (!queue.noOfDesk || queue.noOfDesk <= 0 || queue.noOfDesk > 26)
+    //   throw Error('NoOfDesk is required and must be between 1 and 26');
+    // else if (!queue.deskDetails || queue.deskDetails.length === 0) throw Error('Atleast one desk detail is required');
+    // else if (queue.deskDetails.length !== queue.noOfDesk)
+    //   throw Error('Need Desk details for all the no of Desks specified');
+    // else if (
+    //   queue.deskDetails.length !==
+    //   queue.deskDetails.filter((value, index, self) => self.findIndex((x) => x.username === value.username) === index)
+    //     .length
+    // ) {
+    //   throw Error('Desk username must be unique');
+    // } else if (!queue.problems || queue.problems.length === 0) throw Error('Atleast one problem selection is required');
+    // else if (
+    //   queue.problems.length !==
+    //   queue.problems.filter(
+    //     (value, index, self) =>
+    //       self.findIndex((x) => userFriendlyString(String(x)) === userFriendlyString(String(value))) === index,
+    //   ).length
+    // ) {
+    //   throw Error(`Problems must be unique`);
+    // } else if (!queue.solutions || queue.solutions.length === 0)
+    //   throw Error('Atleast one solution selection is required');
+    // else if (
+    //   queue.solutions.length !==
+    //   queue.solutions.filter(
+    //     (value, index, self) =>
+    //       self.findIndex((x) => userFriendlyString(String(x)) === userFriendlyString(String(value))) === index,
+    //   ).length
+    // ) {
+    //   throw Error('solutions must be unique');
+    // } 
+    else if (!queue.start_date) throw Error('Start date is required');
     else if (!queue.end_date) throw Error('End date is required');
     else if (moment(new Date(queue.end_date)).isBefore(new Date(queue.start_date)))
       throw Error('End date/time must be greater than start date/time');
@@ -51,8 +52,8 @@ const validateQueueInputs = (queue) => {
     else if (!queue.end_number) throw Error('End number is required');
     else if (Number(queue.end_number) <= Number(queue.start_number))
       throw Error('End number must be greater than start number');
-    else if (!queue.lattitude) throw Error('Lattitude is required');
-    else if (!queue.longitude) throw Error('Longitude is required');
+    // else if (!queue.lattitude) throw Error('Lattitude is required');
+    // else if (!queue.longitude) throw Error('Longitude is required');
     if (queue.isCancelled) {
       if (!queue.cancelledBy) throw Error('CancelledBy is required for cancelled queue');
       else if (!queue.cancelled_date) throw Error('Cancelled date is required for cancelled queue');
@@ -116,8 +117,12 @@ class QueueService extends RepositoryWithUserService {
           ...payload,
           status: QUEUE_STATUS.WAITING,
         };
+        console.log("pay-1");
+        
         const result = await super.create(userId, payload);
+            console.log("pay-2");
         if (result) {
+              console.log("pay-3");
           await deskService.insertMany(userId, result.id, obj.deskDetails);
           await problemAndSolutionService.insertMany(userId, PS_TYPES.PROBLEMS, result.id, obj.problems);
           await problemAndSolutionService.insertMany(userId, PS_TYPES.SOLUTIONS, result.id, obj.solutions);
@@ -144,41 +149,63 @@ class QueueService extends RepositoryWithUserService {
     }
   }
 
+  // async getByFilter(category, id, start_date, end_date, coordinates) {
+  //   try {
+  //     let query = {};
+  //     if (category) {
+  //       query = { ...query, category };
+  //     }
+  //     if (id) {
+  //       query = { ...query, merchant: merchantId };
+  //     }
+  //     // filter by date range, if any date includes in queue date range, that queue will be visible
+  //     const dateArr = await getDateQuery(start_date, end_date);
+  //     if (dateArr) {
+  //       query = { ...query, $or: dateArr };
+  //     }
+  //     if (coordinates) {
+  //       query = {
+  //         ...query,
+  //         location: {
+  //           $near: {
+  //             $maxDistance: RADIUS, // in 3 km area from given coordinates
+  //             $geometry: {
+  //               type: 'Point',
+  //               coordinates: JSON.parse(coordinates),
+  //             },
+  //           },
+  //         },
+  //       };
+  //     }
+  //     const result = await Queue.find(query);
+  //     if (result) return result.map((item) => item.toJSON());
+  //     return result;
+  //   } catch (e) {
+  //     throw e;
+  //   }
+  // }
   async getByFilter(category, merchantId, start_date, end_date, coordinates) {
-    try {
-      let query = {};
-      if (category) {
-        query = { ...query, category };
-      }
-      if (merchantId) {
-        query = { ...query, merchant: merchantId };
-      }
-      // filter by date range, if any date includes in queue date range, that queue will be visible
-      const dateArr = await getDateQuery(start_date, end_date);
-      if (dateArr) {
-        query = { ...query, $or: dateArr };
-      }
-      if (coordinates) {
-        query = {
-          ...query,
-          location: {
-            $near: {
-              $maxDistance: RADIUS, // in 3 km area from given coordinates
-              $geometry: {
-                type: 'Point',
-                coordinates: JSON.parse(coordinates),
-              },
-            },
-          },
-        };
-      }
-      const result = await Queue.find(query);
-      if (result) return result.map((item) => item.toJSON());
-      return result;
-    } catch (e) {
-      throw e;
+  try {
+    const query = {};
+
+    if (category) query.category = category;
+    if (merchantId) query.merchant = merchantId;
+
+    // Filter by date range
+    if (start_date && end_date) {
+      query.start_date = { [Op.lte]: new Date(end_date) };
+      query.end_date = { [Op.gte]: new Date(start_date) };
     }
+
+    // Sequelize does not natively support $near like MongoDB, for coordinates use raw SQL or PostGIS if needed
+
+    const result = await Queue.findAll({ where: query });
+    return result.map((item) => item.toJSON());
+  } catch (e) {
+    throw e;
   }
+}
+
 
   async getCompletedQueues(userId) {
     try {

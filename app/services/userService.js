@@ -26,7 +26,8 @@ class UserService {
    */
   async getUser(id) {
     try {
-      const user = await User.findOne({ _id: id });
+      // const user = await User.findOne({ _id: id });
+      const user  =  await User.findOne({ where: { id } }); 
       if (user) return user.toJSON();
     } catch (e) {
       throw e;
@@ -88,7 +89,6 @@ async validateUserCredential(username, password, role) {
       return null;
     }
     const isValid = await user.authenticateUser(password);
-    
     if (isValid && (user.dataValues.role === role || user.dataValues.role === 'both')) {
       return user.toAuthJSON();
     }
@@ -562,27 +562,56 @@ async verifyEmailCode(user_id, code) {
   //   }
   // }
 
-  async updateUserProfile(user_id, obj) {
+async updateUserProfile(user_id, obj, file) {
   try {
+    console.log('updateUserProfile input:', { user_id, obj, file }); // Debug
     const user = await this.getUser(user_id);
-    if (!user) throw Error('User not exists');
+    if (!user) throw new Error('User not exists');
 
-    obj = {
-      ...obj,
+    const { firstName, lastName, address, gender } = obj;
+    if (!firstName) throw new Error('First name is required');
+    if (!lastName) throw new Error('Last name is required');
+    if (!address) throw new Error('Address is required');
+    if (!gender) throw new Error('Gender is required');
+
+    let profileImageUrl = user.ProfileUrl || null;
+    if (file) {
+      profileImageUrl = `Uploads/${file.filename}`; // Store relative path
+      console.log('File uploaded, new ProfileUrl:', profileImageUrl); // Debug
+    } else {
+      console.log('No file uploaded, keeping existing ProfileUrl:', profileImageUrl); // Debug
+    }
+
+    const updateObj = {
+      firstName,
+      lastName,
+      address,
+      gender,
       isOnboarding: false,
+      updatedAt: new Date(),
+      ProfileUrl: profileImageUrl,
     };
 
-    // Update with Sequelize
-    const [updatedCount] = await User.update(obj, {
+    Object.keys(updateObj).forEach((key) => updateObj[key] === undefined && delete updateObj[key]);
+
+    console.log('Updating user with:', updateObj); // Debug
+    const [updatedCount] = await User.update(updateObj, {
       where: { id: user_id },
     });
 
-    if (updatedCount === 0) throw Error('Update failed');
+    if (updatedCount === 0) {
+      throw new Error('Update failed, possible database constraint or schema issue');
+    }
 
-    // Return updated user
-    return await this.getUser(user_id);
+    const updatedUser = await this.getUser(user_id);
+    if (updatedUser.ProfileUrl) {
+      updatedUser.ProfileUrl = `http://localhost:8008/${updatedUser.ProfileUrl}`; // Replace with your server URL
+    }
+    console.log('Updated user:', updatedUser); // Debug
+    return updatedUser;
   } catch (err) {
-    throw err;
+    console.error('updateUserProfile error:', err.message, 'Stack:', err.stack);
+    throw new Error(err.message || 'Failed to update user profile');
   }
 }
 

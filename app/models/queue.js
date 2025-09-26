@@ -349,5 +349,6 @@ if (queue.dataValues.start_date && !(queue.dataValues.start_date instanceof Date
 
 // Associations
 Queue.belongsTo(require('./user'), { foreignKey: 'uid', as: 'user' });
-
+Queue.belongsTo(require('./user'), { foreignKey: 'merchant', as: 'merchantUser' });
+// Queue.hasMany(require('./token'), { foreignKey: 'queueId', as: 'tokens' });
 module.exports = Queue;

@@ -8,12 +8,16 @@ const { SENTRY_KEY, NODE_ENV } = require('../../config/env');
 const APIError = require('./error');
 const { RequiredError } = require('./error');
 
+
+
 const isDev = NODE_ENV === 'development';
 const isProd = !isDev;
 
 // eslint-disable-next-line no-unused-vars
 module.exports = (err, req, res, next) => {
   console.log('isProd', isProd);
+  console.log("image payload",res);
+  
   if (!err) {
     return new APIError('Error with the server!', HTTPStatus.INTERNAL_SERVER_ERROR, true);
   }
@@ -36,7 +40,7 @@ module.exports = (err, req, res, next) => {
     pe.skipPackage('express');
 
     // eslint-disable-next-line no-console
-    console.log('ERROR', pe.render(err));
+    console.log('ERROR123', pe.render(err));
   }
 
   const error = {

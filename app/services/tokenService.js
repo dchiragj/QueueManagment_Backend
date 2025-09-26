@@ -158,7 +158,26 @@ class TokenService extends RepositoryWithUserService {
       throw e;
     }
   }
+async generateTokenNumber(queue) {
+  // Check if there are available token numbers
+  const usedTokens = await Token.findAll({
+    where: { queueId: queue.id },
+    attributes: ['tokenNumber'],
+  });
+  const usedTokenNumbers = usedTokens.map(token => token.tokenNumber);
 
+  // Find the next available token number
+  let tokenNumber = queue.start_number;
+  while (usedTokenNumbers.includes(tokenNumber) && tokenNumber <= queue.end_number) {
+    tokenNumber++;
+  }
+
+  if (tokenNumber > queue.end_number) {
+    throw new Error('No available token numbers in this queue');
+  }
+
+  return tokenNumber;
+}
   async getByQueueIds(userId, queue) {
     try {
       const result = await Token.find({ uid: userId, queue })

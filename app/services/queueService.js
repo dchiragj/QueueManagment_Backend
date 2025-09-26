@@ -5,6 +5,11 @@ const deskService = require('./deskService');
 const { PS_TYPES, RADIUS, QUEUE_STATUS } = require('../config/constants');
 const moment = require('moment');
 const { userFriendlyString } = require('../utils/helpers');
+const nodemailer = require('nodemailer');
+const QRCode = require('qrcode');
+   const fs = require('fs');
+const User = require( '../models/user' );
+const category = require( '../models/category' );
 
 const validateQueueInputs = (queue) => {
   try {
@@ -97,46 +102,127 @@ const getDateQuery = async (startDate, endDate) => {
   }
   return;
 };
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.SMTP_USERNAME, // Your Gmail address (e.g., yourapp@gmail.com)
+    pass: process.env.SMTP_PASSWORD, // Your Gmail password or App Password (for 2FA)
+  },
+});
 
 class QueueService extends RepositoryWithUserService {
   constructor() {
     super(Queue);
   }
 
-  async create(userId, payload) {
-    try {
-      if (!payload) return;
-      if (validateQueueInputs(payload)) {
-        // remove problems & solutions from payload as they are not needed in queue collection
-        let obj = JSON.parse(JSON.stringify(payload));
-        delete payload.problems;
-        delete payload.solutions;
-        delete payload.deskDetails;
+  // async create(userId, payload) {
+  //   try {
+  //     if (!payload) return;
+  //     if (validateQueueInputs(payload)) {
+  //       // remove problems & solutions from payload as they are not needed in queue collection
+  //       let obj = JSON.parse(JSON.stringify(payload));
+  //       delete payload.problems;
+  //       delete payload.solutions;
+  //       delete payload.deskDetails;
 
-        payload = {
-          ...payload,
-          status: QUEUE_STATUS.WAITING,
-        };
-        console.log("pay-1");
-        
-        const result = await super.create(userId, payload);
-            console.log("pay-2");
-        if (result) {
-              console.log("pay-3");
-          await deskService.insertMany(userId, result.id, obj.deskDetails);
-          await problemAndSolutionService.insertMany(userId, PS_TYPES.PROBLEMS, result.id, obj.problems);
-          await problemAndSolutionService.insertMany(userId, PS_TYPES.SOLUTIONS, result.id, obj.solutions);
+  //       payload = {
+  //         ...payload,
+  //         status: QUEUE_STATUS.WAITING,
+  //       };
+  //       const result = await super.create(userId, payload);
+  //       if (result) {
+  //         await deskService.insertMany(userId, result.id, obj.deskDetails);
+  //         await problemAndSolutionService.insertMany(userId, PS_TYPES.PROBLEMS, result.id, obj.problems);
+  //         await problemAndSolutionService.insertMany(userId, PS_TYPES.SOLUTIONS, result.id, obj.solutions);
 
-          const item = await this.getSingle(userId, result.id);
-          return item;
+  //         const item = await this.getSingle(userId, result.id);
+  //         return item;
+  //       }
+  //       return undefined;
+  //     }
+  //   } catch (e) {
+  //     throw e;
+  //   }
+  // }
+  
+async create(userId, payload) {
+  try {
+    if (!payload) return;
+    if (validateQueueInputs(payload)) {
+      // Remove problems & solutions from payload as they are not needed in queue collection
+      let obj = JSON.parse(JSON.stringify(payload));
+      delete payload.problems;
+      delete payload.solutions;
+      delete payload.deskDetails;
+
+      payload = {
+        ...payload,
+        status: QUEUE_STATUS.WAITING,
+      };
+
+      const result = await super.create(userId, payload);
+      if (result) {
+        await deskService.insertMany(userId, result.id, obj.deskDetails);
+        await problemAndSolutionService.insertMany(userId, PS_TYPES.PROBLEMS, result.id, obj.problems);
+        await problemAndSolutionService.insertMany(userId, PS_TYPES.SOLUTIONS, result.id, obj.solutions);
+
+        const item = await this.getSingle(userId, result.id);
+        const user = await User.findByPk(userId).catch(err => {
+          throw err;
+        });
+        if (!user || !user.email) {
+          console.error('User or user email not found for userId:', userId);
+          throw new Error('User email not found');
         }
-        return undefined;
-      }
-    } catch (e) {
-      throw e;
-    }
-  }
+        const userEmail = user.email;
 
+        if (!fs.existsSync('./qrcodes')) {
+          fs.mkdirSync('./qrcodes');
+        }
+
+        // Generate a unique QR code name (e.g., queueName + timestamp or UUID)
+        const uniqueQrCodeName = `${item.name}_${Date.now()}`; // Example: "Queue1_1635186000000"
+        // Alternatively, use UUID: const { v4: uuidv4 } = require('uuid'); const uniqueQrCodeName = `${item.name}_${uuidv4()}`;
+console.log(item,"itemuser");
+
+        // Include queueId and uniqueQrCodeName in QR code data
+        const qrData = JSON.stringify({
+          queueId: item.id, // Include queueId
+          queueName: item.name,
+          uniqueQrCodeName: uniqueQrCodeName, // Include unique QR code name
+          tokenNumber: `${item.start_number} to ${item.end_number}`,
+          category:item.category
+        });
+console.log(qrData,"qrdata");
+
+        const qrCodePath = `./qrcodes/${uniqueQrCodeName}.png`; // Use unique QR code name for file
+        await QRCode.toFile(qrCodePath, qrData);
+
+        // Send email with QR code
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: userEmail,
+          subject: `QR Code for Queue: ${item.name}`,
+          text: `A new queue has been created: ${item.name}. Token numbers: ${item.start_number} to ${item.end_number}. QR Code Name: ${uniqueQrCodeName}.`,
+          attachments: [
+            {
+              filename: `${uniqueQrCodeName}.png`, // Use unique QR code name for attachment
+              path: qrCodePath,
+            },
+          ],
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log('Email sent with QR code');
+
+        return item;
+      }
+      return undefined;
+    }
+  } catch (e) {
+    throw e;
+  }
+}
   async getSingleById(id) {
     try {
       if (!id) return;

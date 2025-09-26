@@ -81,7 +81,11 @@ const logErrorService = require('./utils/errorLog/log');
 const path = require('path');
 const app = express();
 const server = http.Server(app);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const cors = require('cors');
+const router = require( './components/auth/auth.route' );
+app.use(cors());
+
+router.use('/uploads', express.static('uploads'));
 
 // Initialize middlewares
 middlewares.init(app);

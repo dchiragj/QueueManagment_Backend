@@ -15,9 +15,9 @@ class AuthenticationValidator {
     if (isEmpty(password)) {
       errors.password = 'Password is required';
     }
-    if (isEmpty(role)) {
-      errors.role = 'User type merchant/customer is required';
-    }
+    // if (isEmpty(role)) {
+    //   errors.role = 'User type merchant/customer is required';
+    // }
 
     if (Object.keys(errors).length > 0) {
       createValidationResponse(res, errors);

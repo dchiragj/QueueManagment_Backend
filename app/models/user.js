@@ -131,7 +131,7 @@ User.prototype.toAuthJSON = function() {
     mobileNumber: this.mobileNumber,
     isActive: this.isActive,
     role: this.role,
-    ProfileUrl: profileUrl,
+    ProfileUrl: profileUrl,   // 👈 backend URL
     token: `${this.createToken()}`,
     verificationRequired: !this.isEmailVerified,
     onboardingRequired: this.isOnboarding,

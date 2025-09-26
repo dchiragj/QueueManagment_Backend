@@ -72,7 +72,7 @@ async getUserRaw(id) {
   }
 
 // UserService માં
-async validateUserCredential(username, password, role) {
+async validateUserCredential(username, password) {
   try {
     const normalized_username = String(username).toUpperCase().trim();
     const user = await User.findOne({
@@ -89,7 +89,10 @@ async validateUserCredential(username, password, role) {
       return null;
     }
     const isValid = await user.authenticateUser(password);
-    if (isValid && (user.dataValues.role === role || user.dataValues.role === 'both')) {
+    // if (isValid && (user.dataValues.role === role || user.dataValues.role === 'both')) {
+    //   return user.toAuthJSON();
+    // }
+     if (isValid) {
       return user.toAuthJSON();
     }
     return null;
@@ -564,7 +567,7 @@ async verifyEmailCode(user_id, code) {
 
 async updateUserProfile(user_id, obj, file) {
   try {
-    console.log('updateUserProfile input:', { user_id, obj, file }); // Debug
+    console.log('updateUserProfile input:', { user_id, obj, file });
     const user = await this.getUser(user_id);
     if (!user) throw new Error('User not exists');
 
@@ -576,10 +579,8 @@ async updateUserProfile(user_id, obj, file) {
 
     let profileImageUrl = user.ProfileUrl || null;
     if (file) {
-      profileImageUrl = `Uploads/${file.filename}`; // Store relative path
-      console.log('File uploaded, new ProfileUrl:', profileImageUrl); // Debug
-    } else {
-      console.log('No file uploaded, keeping existing ProfileUrl:', profileImageUrl); // Debug
+      profileImageUrl = `Uploads/${file.filename}`;
+      console.log('File uploaded, new ProfileUrl:', profileImageUrl);
     }
 
     const updateObj = {
@@ -594,7 +595,7 @@ async updateUserProfile(user_id, obj, file) {
 
     Object.keys(updateObj).forEach((key) => updateObj[key] === undefined && delete updateObj[key]);
 
-    console.log('Updating user with:', updateObj); // Debug
+    console.log('Updating user with:', updateObj);
     const [updatedCount] = await User.update(updateObj, {
       where: { id: user_id },
     });
@@ -605,9 +606,9 @@ async updateUserProfile(user_id, obj, file) {
 
     const updatedUser = await this.getUser(user_id);
     if (updatedUser.ProfileUrl) {
-      updatedUser.ProfileUrl = `http://localhost:8008/${updatedUser.ProfileUrl}`; // Replace with your server URL
+      updatedUser.ProfileUrl = `http://localhost:8008/${updatedUser.ProfileUrl}`;
     }
-    console.log('Updated user:', updatedUser); // Debug
+    console.log('Updated user:', updatedUser);
     return updatedUser;
   } catch (err) {
     console.error('updateUserProfile error:', err.message, 'Stack:', err.stack);

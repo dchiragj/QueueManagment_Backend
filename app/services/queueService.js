@@ -145,7 +145,7 @@ class QueueService extends RepositoryWithUserService {
   //   }
   // }
   
-async create(userId, payload) {
+async create(userId, payload) {  
   try {
     if (!payload) return;
     if (validateQueueInputs(payload)) {
@@ -160,13 +160,13 @@ async create(userId, payload) {
         status: QUEUE_STATUS.WAITING,
       };
 
-      const result = await super.create(userId, payload);
+      const result = await super.create(userId, payload);     
       if (result) {
         await deskService.insertMany(userId, result.id, obj.deskDetails);
         await problemAndSolutionService.insertMany(userId, PS_TYPES.PROBLEMS, result.id, obj.problems);
         await problemAndSolutionService.insertMany(userId, PS_TYPES.SOLUTIONS, result.id, obj.solutions);
 
-        const item = await this.getSingle(userId, result.id);
+        const item = await this.getSingle(userId, result.id); 
         const user = await User.findByPk(userId).catch(err => {
           throw err;
         });
@@ -180,22 +180,17 @@ async create(userId, payload) {
           fs.mkdirSync('./qrcodes');
         }
 
-        // Generate a unique QR code name (e.g., queueName + timestamp or UUID)
         const uniqueQrCodeName = `${item.name}_${Date.now()}`; // Example: "Queue1_1635186000000"
-        // Alternatively, use UUID: const { v4: uuidv4 } = require('uuid'); const uniqueQrCodeName = `${item.name}_${uuidv4()}`;
-console.log(item,"itemuser");
-
+        
         // Include queueId and uniqueQrCodeName in QR code data
         const qrData = JSON.stringify({
-          queueId: item.id, // Include queueId
-          queueName: item.name,
-          uniqueQrCodeName: uniqueQrCodeName, // Include unique QR code name
+          queueId: result.id, // Include queueIdz
+          queueName: payload.name,
+          uniqueQrCodeName: uniqueQrCodeName, 
           tokenNumber: `${item.start_number} to ${item.end_number}`,
-          category:item.category
+          category:payload.category
         });
-console.log(qrData,"qrdata");
-
-        const qrCodePath = `./qrcodes/${uniqueQrCodeName}.png`; // Use unique QR code name for file
+        const qrCodePath = `./qrcodes/${uniqueQrCodeName}.png`; 
         await QRCode.toFile(qrCodePath, qrData);
 
         // Send email with QR code

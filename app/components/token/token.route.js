@@ -1,10 +1,10 @@
-const express = require('express');
+const express = require( 'express' );
 // Init Router
 const router = express.Router();
-const passport = require('passport');
-const PassportErrorHandler = require('../../middleware/passportErrorResponse');
-const controller = require('./token.controller');
-const validations = require('./token.validations');
+const passport = require( 'passport' );
+const PassportErrorHandler = require( '../../middleware/passportErrorResponse' );
+const controller = require( './token.controller' );
+const validations = require( './token.validations' );
 const Queue = require( '../../models/queue' );
 const { createError, createResponse } = require( '../../utils/helpers' );
 const Token = require( '../../models/token' );
@@ -12,20 +12,20 @@ const User = require( '../../models/user' );
 const service = require( '../../services/tokenService' );
 
 /**
- * @route GET api/token
+ * @route GET api/token/list
  * @description get token
  * @returns JSON
  * @access public
  */
 router.get(
-  '/',
+  '/list',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  (req, res) => {
-    controller.getTokenList(req, res);
+  ( req, res ) => {
+    controller.getTokenList( req, res );
   },
 );
 
@@ -38,12 +38,12 @@ router.get(
 router.get(
   '/completed',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  (req, res) => {
-    controller.getCompletedTokenList(req, res);
+  ( req, res ) => {
+    controller.getCompletedTokenList( req, res );
   },
 );
 
@@ -56,12 +56,12 @@ router.get(
 router.get(
   '/:queueId',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  (req, res) => {
-    controller.getTokenListByQueueId(req, res);
+  ( req, res ) => {
+    controller.getTokenListByQueueId( req, res );
   },
 );
 
@@ -74,12 +74,12 @@ router.get(
 router.get(
   '/:queueId/next-token',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  (req, res) => {
-    controller.getNextToken(req, res);
+  ( req, res ) => {
+    controller.getNextToken( req, res );
   },
 );
 
@@ -90,15 +90,15 @@ router.get(
  * @access public
  */
 router.post(
-  '/', 
+  '/',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
   validations.create,
-  (req, res) => {
-    controller.create(req, res);
+  ( req, res ) => {
+    controller.create( req, res );
   },
 );
 
@@ -111,13 +111,13 @@ router.post(
 router.get(
   '/details/:id',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
   validations.getItem,
-  (req, res) => {
-    controller.getDetails(req, res);
+  ( req, res ) => {
+    controller.getDetails( req, res );
   },
 );
 /**
@@ -129,87 +129,104 @@ router.get(
 router.post(
   '/generate-token',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  async (req, res) => {
+  async ( req, res ) => {
     try {
-      const { queueId } = req.body; // Assume QR code scan provides queueId
-      if (!queueId) {
-        return createError(res, { message: 'Queue ID is required' });
+      const { queueId, categoryId } = req.body;
+      if ( !queueId || !categoryId ) {
+        return createError( res, { message: 'Queue ID or Category ID is required' } );
       }
-
-      // Verify queue exists
-      const queue = await service.getSingle(req.user.id, queueId);
-      if (!queue) {
-        return createError(res, { message: 'Queue not found' });
+      if ( isNaN( categoryId ) ) {
+        console.error( 'Invalid categoryId received:', categoryId );
+        return createError( res, { message: 'Category ID must be a number' } );
       }
+      // Fetch queue and verify ownership
+      const queue = await service.getSingleQueue( req.user.id, queueId );
+console.log(queue,"qutest");
 
-      // Generate token logic (example)
-      const tokenNumber = await service.generateTokenNumber(queue); // Implement this function
+      if ( !queue ) {
+        return createError( res, { message: 'Queue not found' } );
+      }
+      const lastToken = await Token.findOne( {
+        attributes: [ 'id', 'tokenNumber', 'status', 'createdAt' ],
+        where: { queueId: queue.id, categoryId: parseInt( categoryId ) },
+        order: [ [ 'id', 'DESC' ] ]
+      } );
+      if ( lastToken ) {
+        return createError( res, "your token is already generated" );
+      }
       const token = {
         queueId: queue.id,
-        tokenNumber,
-        userId: req.user.id,
-        status: 'ISSUED',
+        queueName :queue.name,
+        tokenNumber: lastToken?.tokenNumber ? lastToken?.tokenNumber + 1 : 1,
+        customerId: req.user.id,
+        categoryId: parseInt( categoryId ),
+        status: 'PENDING',
         createdAt: new Date(),
+        updatedAt: new Date(),
       };
-
-      // Save token to database (assuming you have a Token model)
-      const savedToken = await Token.create(token); // Adjust based on your database model
-      return createResponse(res, 'ok', 'Token generated successfully', savedToken);
-    } catch (e) {
-      return createError(res, e);
+      // Save token
+      const savedToken = await Token.create( token );
+      return createResponse( res, 'ok', 'Token generated successfully', savedToken );
+    } catch ( e ) {
+      console.error( 'Generate token error:', e.message, e.stack );
+      return createError( res, e );
     }
   }
 );
+
 router.post(
   '/check-token',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  async (req, res) => {
+  async ( req, res ) => {
     try {
-      const { queueId } = req.body;
-      if (!queueId) {
-        return createError(res, { message: 'Queue ID is required' });
+      const { queueId, categoryId } = req.body;
+      if ( !queueId || !categoryId ) {
+        return createError( res, { message: 'Queue ID or Category ID is required' } );
+      }
+      if ( isNaN( categoryId ) ) {
+        return createError( res, { message: 'Category ID must be a number' } );
       }
 
-      // Verify queue exists
-      const queue = await service.getSingle(req.user.id, queueId);
-      if (!queue) {
-        return createError(res, { message: 'Queue not found' });
+      // Verify the queue exists and belongs to the user
+      const queue = await service.getSingleQueue( req.user.id, queueId );
+      if ( !queue ) {
+        return createError( res, { message: 'Queue not found' } );
       }
 
-      // Check if a token exists for the user and queue
-      const existingToken = await Token.findOne({
+      // Check for an existing token
+      const existingToken = await Token.findOne( {
         where: {
           queueId: queue.id,
-          userId: req.user.id,
-          status: 'ISSUED', // Only return active tokens
+          customerId: req.user.id,
+          categoryId: parseInt( categoryId ),
+          status: 'PENDING',
         },
-      });
-
-      if (!existingToken) {
-        return createResponse(res, 'ok', 'No token found for this queue', null);
+      } );
+      if ( !existingToken ) {
+        return createResponse( res, 'ok', 'No token found for this queue and category', null );
       }
-
-      return createResponse(res, 'ok', 'Token found', {
+      return createResponse( res, 'ok', 'Token found', {
         queueId: existingToken.queueId,
         tokenNumber: existingToken.tokenNumber,
-        userId: existingToken.userId,
+        userId: existingToken.customerId,
         status: existingToken.status,
         createdAt: existingToken.createdAt,
-      });
-    } catch (e) {
-      return createError(res, e);
+        categoryId: existingToken.categoryId,
+      }, 200 );
+    } catch ( e ) {
+      console.error( 'Check token error:', e.message, e.stack );
+      return createError( res, e );
     }
   }
 );
-
 // /**
 //  * @route POST api/token/join
 //  * @description Join a queue and get a token

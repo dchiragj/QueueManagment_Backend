@@ -1,3 +1,5 @@
+const { where } = require( 'underscore' );
+const Queue = require( '../models/queue' );
 const { isEmpty } = require('../utils/validator');
 
 class RepositoryWithUserService {
@@ -5,7 +7,7 @@ class RepositoryWithUserService {
     this.collection = collection;
   }
 
-  async get(userId) {
+ async get(userId) {
     try {
       const result = await this.collection.find({ uid: userId });
       if (result) {
@@ -16,6 +18,25 @@ class RepositoryWithUserService {
       throw e;
     }
   }
+
+async gettokenlist(userId,role) {
+  console.log("role-test",role);
+  
+  try {
+    const result = await this.collection.findAll({
+      where: {customerId: userId}
+    });
+
+    if (result && result.length > 0) {
+      return result.map((item) => item.toJSON());
+    }
+
+    return undefined;
+  } catch (e) {
+    throw e;
+  }
+}
+
 
   async getRaw(userId) {
     try {
@@ -38,7 +59,36 @@ class RepositoryWithUserService {
       throw e;
     }
   }
+  async getSingleQueue(userId, id) {
+    console.log("idqueue",id,this.collection);
+    
+    try {
+      if (!id) return;
+      const result = await Queue.findOne({where: { id} });
 
+      if (result) return result.toJSON();
+      return undefined;
+    } catch (e) {
+      throw e;
+    }
+  }
+  async getSingletoken(userId, id) {
+   console.log(userId, "useridget", id, "getsingle1");
+  try {
+    if (!id) return;
+    // Look up a queue owned by the user
+    console.log(this.collection,"this.collection");
+    
+    const result = await this.collection.findOne({
+      where: { customerId:userId, queueId: id }  
+    });
+    console.log(result, "1234");
+    if (result) return result.toJSON();
+    return undefined;
+  } catch (e) {
+    throw e;
+  }
+}
   async getSingleRaw(userId, id) {
     try {
       if (!id) return;

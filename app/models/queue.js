@@ -182,7 +182,7 @@ const Queue = sequelize.define('Queue', {
     },
   },
   category: {
-    type: DataTypes.STRING(255),
+    type: DataTypes.NUMBER,
     allowNull: false,
   },
   name: {

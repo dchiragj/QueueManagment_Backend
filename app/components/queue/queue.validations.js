@@ -98,8 +98,8 @@ create(req, res, next) {
   createProbSol(req, res, next) {
     const errors = {};
     const { type } = req.params;
-    const { categoryId, queueId } = req.query;
-    const { problems, solutions } = req.body;
+    const { categoryId, queueId } = req.body;
+    // const { problems, solutions } = req.body;
 
     if (isEmpty(categoryId) && isEmpty(queueId)) {
       errors.queueId = 'queueId or categoryId is required';

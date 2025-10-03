@@ -115,7 +115,7 @@ class QueueController {
     try {
       const { user } = req;
       const { type } = req.params;
-      const { categoryId, queueId } = req.query;
+      const { categoryId, queueId } = req.body;
       const { problems, solutions } = req.body;
 
       let payload = {};
@@ -123,7 +123,7 @@ class QueueController {
       else payload = solutions;
       const item = await problemAndSolutionService.insertMany(user.id, type, queueId, payload, categoryId);
       if (item) return createResponse(res, 'ok', 'Queue Prob/Sol created successfully', item);
-      else return createError(res, { message: 'Unable to create queue prob/sol' });
+      else return createError(res, { message: 'Unable to create queue prob/sol' },);
     } catch (e) {
       return createError(res, e);
     }

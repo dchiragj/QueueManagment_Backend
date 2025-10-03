@@ -218,6 +218,15 @@ const Token = sequelize.define('Token', {
     allowNull: false,
     references: { model: 'Users', key: 'id' },
   },
+   categoryId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'Category', key: 'id' },
+  },
+    queueName: {
+    type: DataTypes.STRING,
+    allowNull: false,  
+  },
   tokenNumber: {
     type: DataTypes.INTEGER,
     allowNull: false,

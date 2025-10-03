@@ -121,18 +121,18 @@ router.get(
  * @returns JSON
  * @access public
  */
-router.post(
-  '/:type',
-  [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
-    PassportErrorHandler.success,
-    PassportErrorHandler.error,
-  ],
-  validations.createProbSol,
-  (req, res) => {
-    controller.createProbSol(req, res);
-  },
-);
+// router.post(
+//   '/:type',
+//   [
+//     passport.authenticate('jwt', { session: false, failWithError: true }),
+//     PassportErrorHandler.success,
+//     PassportErrorHandler.error,
+//   ],
+//   validations.createProbSol,
+//   (req, res) => {
+//     controller.createProbSol(req, res);
+//   },
+// );
 
 /**
  * @route GET api/queue/:type

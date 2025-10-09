@@ -1,6 +1,7 @@
 const { where } = require( 'underscore' );
 const Queue = require( '../models/queue' );
 const { isEmpty } = require('../utils/validator');
+const { Op } = require( 'sequelize' );
 
 class RepositoryWithUserService {
   constructor(collection) {
@@ -20,11 +21,9 @@ class RepositoryWithUserService {
   }
 
 async gettokenlist(userId,role) {
-  console.log("role-test",role);
-  
   try {
     const result = await this.collection.findAll({
-      where: {customerId: userId}
+      where: {customerId: userId, status: { [Op.ne]: 'CANCELLED' },},order: [['createdAt', 'DESC']],
     });
 
     if (result && result.length > 0) {
@@ -60,7 +59,6 @@ async gettokenlist(userId,role) {
     }
   }
   async getSingleQueue(userId, id) {
-    console.log("idqueue",id,this.collection);
     
     try {
       if (!id) return;

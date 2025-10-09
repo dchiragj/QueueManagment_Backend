@@ -227,6 +227,80 @@ router.post(
     }
   }
 );
+
+/**
+ * @route DELETE api/token/delete/:id
+ * @description Mark a token as CANCELLED by updating its status
+ * @returns JSON
+ * @access public
+ */
+router.delete(
+  '/delete/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { user } = req;
+
+      // Validate token ID
+      if (!id || isNaN(id)) {
+        return createError(res, { message: 'Valid token ID is required' }, 400);
+      }
+
+      // Find the token
+      const token = await Token.findOne({
+        where: { id: parseInt(id) },
+      });
+
+      if (!token) {
+        return createError(res, { message: 'Token not found' }, 404);
+      }
+
+      // Authorization check: Only the token's customer or an admin can cancel
+      // Uncomment if you want to restrict cancellation
+      /*
+      if (token.customerId !== user.id && user.role !== 'admin') {
+        return createError(res, { message: 'Unauthorized to cancel this token' }, 403);
+      }
+      */
+
+      // Check if token is already CANCELLED
+      if (token.status === 'CANCELLED') {
+        return createError(res, { message: 'Token is already cancelled' }, 400);
+      }
+
+      // Check if token is COMPLETED (optional: prevent cancelling completed tokens)
+      if (token.status === 'COMPLETED') {
+        return createError(res, { message: 'Cannot cancel a completed token' }, 400);
+      }
+
+      // Update token status to CANCELLED
+      await token.update({
+        status: 'CANCELLED',
+        updatedAt: new Date(),
+      });
+
+      // Return success response, excluding updatedAt
+      return createResponse(res, 'ok', 'Token cancelled successfully', {
+        id: token.id,
+        queueId: token.queueId,
+        queueName: token.queueName,
+        tokenNumber: token.tokenNumber,
+        customerId: token.customerId,
+        categoryId: token.categoryId,
+        status: token.status,
+        createdAt: token.createdAt,
+      });
+    } catch (e) {
+      console.error('Cancel token error:', e.message, e.stack);
+      return createError(res, { message: e.message || 'Failed to cancel token' }, 500);
+    }
+  }
+);
 // /**
 //  * @route POST api/token/join
 //  * @description Join a queue and get a token

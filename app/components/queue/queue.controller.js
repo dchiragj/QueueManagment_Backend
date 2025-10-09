@@ -5,6 +5,8 @@ const deskService = require('./../../services/deskService');
 const service = require('./../../services/queueService');
 const { PS_TYPES, USER_ROLE_TYPES } = require('../../config/constants');
 const queue = require( '../../models/queue' );
+const Queue = require( '../../models/queue' );
+const moment = require('moment');
 
 class QueueController {
   /**
@@ -179,16 +181,55 @@ class QueueController {
    * @description get item details
    */
   async getDetails(req, res) {
+    console.log("getdetails");
     try {
       const { user } = req;
       const { id } = req.params;
-      const item = await service.getSingle(user.id, id);
+      const item = await service.getSingleQueue(user.id, id);
       if (item) return createResponse(res, 'ok', 'Queue', item);
       else return createError(res, { message: 'Queue Item not found' });
     } catch (e) {
       return createError(res, e);
     }
   }
+
+
+  async cancelQueue (req, res) {
+  try {
+    const { id } = req.params;
+    const { cancelled_comment } = req.body;
+    const userId = req.user.id; // Assuming req.user contains the authenticated user's data from passport
+
+    // Find the queue
+    const queue = await Queue.findByPk(id);
+    if (!queue) {
+      return res.status(404).json({ message: 'Queue not found' });
+    }
+
+    // Check if queue is already canceled
+    if (queue.isCancelled) {
+      return res.status(400).json({ message: 'Queue is already canceled' });
+    }
+
+    // Current date and time in UTC (e.g., 2025-10-09 10:21:00 UTC from your example, adjusted to current time)
+    const currentUtcTime = moment().utc().toDate();
+
+    // Update cancellation fields to match the example
+    await queue.update({
+      isCancelled: true,
+      cancelledBy: userId,
+      cancelled_date: currentUtcTime,
+      cancelled_comment: cancelled_comment || null,
+      status: 2, // Assuming 2 represents "CANCELED" (adjust based on your status mapping)
+      deletedAt: currentUtcTime, // For soft delete (paranoid: true)
+    });
+
+    return res.status(200).json({ message: 'Queue canceled successfully' });
+  } catch (error) {
+    console.error('Error canceling queue:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 
   /**
    * @description Sign in with email and password

@@ -225,7 +225,24 @@ router.get(
     controller.getDetails(req, res);
   },
 );
-
+/**
+ * @route DELETE api/queue/delete/:id
+ * @description Delete a queue by ID
+ * @returns JSON
+ * @access public
+ */
+router.delete(
+  '/delete/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  validations.getItem, // Reuse existing validation for ID
+  (req, res) => {
+    controller.cancelQueue(req, res);
+  },
+);
 // ✅ Guest Join APIs (No Auth Required)
 router.post('/:id/join-guest', (req, res) => {
   controller.guestJoin(req, res);

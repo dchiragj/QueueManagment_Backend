@@ -1,6 +1,9 @@
 const { createResponse, createError } = require( '../../utils/helpers' );
 const service = require( '../../services/tokenService' );
 const { USER_ROLE_TYPES } = require( '../../config/constants' );
+const Queue = require( '../../models/queue' );
+const Token = require( '../../models/token' );
+const User = require( '../../models/user' );
 
 class TokenController {
   /**
@@ -92,6 +95,136 @@ class TokenController {
       return createError( res, e );
     }
   }
+
+async getServicingTokens(req, res) {
+  try {
+    const { user } = req;
+    const { queueId } = req.params;
+    const { categoryId } = req.query;
+
+    const queue = await Queue.findByPk(queueId);
+    if (!queue) {
+      return createError(res, { message: 'Queue not found' });
+    }
+
+    if (queue.merchant !== user.id) {
+      return createError(res, { message: 'Unauthorized to access this queue' }, 403);
+    }
+
+    const validCategoryId = categoryId ? parseInt(categoryId) : queue.category;
+    if (isNaN(validCategoryId)) {
+      return createError(res, { message: 'Invalid categoryId' }, 400);
+    }
+
+    // Include PENDING and SKIPPED tokens
+    const tokens = await Token.findAll({
+      where: {
+        categoryId: validCategoryId,
+        status: ['PENDING', 'SKIPPED']  // Changed: Include SKIPPED
+      },
+      include: [
+        {
+          model: User,
+          as: 'customer',
+          attributes: ['id', 'FirstName', 'LastName']
+        },
+        {
+          model: Queue,
+          as: 'queue',
+          attributes: ['id', 'name']
+        }
+      ],
+      order: [['tokenNumber', 'ASC']]  // Order by tokenNumber; skipped will appear after PENDING if tokenNumber is higher
+    });
+
+    if (tokens.length > 0) {
+      // Add a flag for frontend to show "Skipped" badge
+      const enrichedTokens = tokens.map(token => ({
+        ...token.toJSON(),
+        isSkipped: token.status === 'SKIPPED'
+      }));
+      return createResponse(res, 'ok', 'Servicing Tokens by Category', enrichedTokens);
+    } else {
+      return createResponse(res, 'ok', 'No tokens found for this category', []);
+    }
+  } catch (e) {
+    return createError(res, e);
+  }
+}
+
+  /**
+ * @description Skip a token by updating its status to SKIPPED
+ */
+async skipTokens(req, res) {
+  try {
+    const { user } = req;
+    const { tokenIds } = req.body;
+
+    if (!Array.isArray(tokenIds) || tokenIds.length === 0) {
+      return createError(res, { message: 'Valid token IDs array is required' }, 400);
+    }
+
+    const updatedTokens = [];
+    for (const id of tokenIds) {
+      const tokenId = parseInt(id);
+      if (isNaN(tokenId)) {
+        continue;
+      }
+
+      const token = await Token.findOne({
+        where: { id: tokenId },
+        include: [
+          {
+            model: Queue,
+            as: 'queue',
+            attributes: ['id', 'merchant'],
+          },
+        ],
+      });
+
+      if (!token || token.queue.merchant !== user.id || ['SKIPPED', 'COMPLETED', 'CANCELLED'].includes(token.status)) {
+        continue; // Skip invalid tokens instead of failing the entire request
+      }
+
+      await token.update({
+        status: 'SKIPPED',
+        updatedAt: new Date(),
+      });
+
+      const updatedToken = await Token.findOne({
+        where: { id: tokenId },
+        include: [
+          { model: User, as: 'customer', attributes: ['id', 'FirstName', 'LastName'] },
+          { model: Queue, as: 'queue', attributes: ['id', 'name'] },
+        ],
+      });
+
+      updatedTokens.push({
+        id: updatedToken.id,
+        queueId: updatedToken.queueId,
+        queueName: updatedToken.queue.name,
+        tokenNumber: updatedToken.tokenNumber,
+        customerId: updatedToken.customerId,
+        customerName: updatedToken.customer
+          ? `${updatedToken.customer.FirstName} ${updatedToken.customer.LastName}`.trim()
+          : 'Unknown Customer',
+        categoryId: updatedToken.categoryId,
+        status: updatedToken.status,
+        createdAt: updatedToken.createdAt,
+        updatedAt: updatedToken.updatedAt,
+      });
+    }
+
+    if (updatedTokens.length === 0) {
+      return createError(res, { message: 'No valid tokens to skip' }, 400);
+    }
+
+    return createResponse(res, 'ok', 'Tokens skipped successfully', updatedTokens);
+  } catch (e) {
+    console.error('Skip tokens error:', e.message, e.stack);
+    return createError(res, { message: e.message || 'Failed to skip tokens' }, 500);
+  }
+}
 }
 
 const tokenController = new TokenController();

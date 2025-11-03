@@ -232,7 +232,7 @@ const Token = sequelize.define('Token', {
     allowNull: false,
   },
   status: {
-    type: DataTypes.ENUM('PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED'),
+    type: DataTypes.ENUM('PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'SKIPPED'),
     defaultValue: 'PENDING',
   },
   createdAt: {
@@ -253,5 +253,6 @@ const Token = sequelize.define('Token', {
 // Associations
 Token.belongsTo(require('./queue'), { foreignKey: 'queueId', as: 'queue' });
 Token.belongsTo(require('./user'), { foreignKey: 'customerId', as: 'customer' });
+Token.belongsTo(require('./category'), { foreignKey: 'categoryId', as: 'category' });
 
 module.exports = Token;

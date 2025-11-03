@@ -145,23 +145,40 @@ router.post(
       }
       // Fetch queue and verify ownership
       const queue = await service.getSingleQueue( req.user.id, queueId );
-console.log(queue,"qutest");
 
       if ( !queue ) {
         return createError( res, { message: 'Queue not found' } );
       }
-      const lastToken = await Token.findOne( {
-        attributes: [ 'id', 'tokenNumber', 'status', 'createdAt' ],
-        where: { queueId: queue.id, categoryId: parseInt( categoryId ) },
-        order: [ [ 'id', 'DESC' ] ]
+
+      // Check if customer already has a PENDING or SKIPPED token for this queue and category
+      const existingToken = await Token.findOne( {
+        where: {
+          queueId: queue.id,
+          customerId: req.user.id,
+          categoryId: parseInt( categoryId ),
+          status: ['PENDING', 'SKIPPED']
+        }
       } );
-      if ( lastToken ) {
-        return createError( res, "your token is already generated" );
+
+      if ( existingToken ) {
+        return createError( res, "Your token is already generated" );
       }
+
+      // Find the maximum tokenNumber for this category (all queues, all customers)
+      const maxToken = await Token.max('tokenNumber', {
+        where: {
+          categoryId: parseInt( categoryId )
+        }
+      });
+
+      console.log('Max token for category', categoryId, ':', maxToken); // Debug log
+
+      const nextTokenNumber = maxToken ? maxToken + 1 : 1;
+
       const token = {
         queueId: queue.id,
         queueName :queue.name,
-        tokenNumber: lastToken?.tokenNumber ? lastToken?.tokenNumber + 1 : 1,
+        tokenNumber: nextTokenNumber,
         customerId: req.user.id,
         categoryId: parseInt( categoryId ),
         status: 'PENDING',
@@ -195,23 +212,41 @@ router.post(
         return createError( res, { message: 'Category ID must be a number' } );
       }
 
-      // Verify the queue exists and belongs to the user
       const queue = await service.getSingleQueue( req.user.id, queueId );
       if ( !queue ) {
         return createError( res, { message: 'Queue not found' } );
       }
 
-      // Check for an existing token
-      const existingToken = await Token.findOne( {
+      let existingToken = await Token.findOne( {
         where: {
           queueId: queue.id,
           customerId: req.user.id,
           categoryId: parseInt( categoryId ),
-          status: 'PENDING',
+          status: ['PENDING', 'SKIPPED'],  // Changed: Include SKIPPED
         },
       } );
+
       if ( !existingToken ) {
         return createResponse( res, 'ok', 'No token found for this queue and category', null );
+      }
+      if (existingToken.status === 'SKIPPED') {
+        const currentServingToken = await service.getNextToken(req.user.id, queue.id, null);  // Reuse existing service
+        const nextAvailableNumber = currentServingToken ? currentServingToken + 1 : existingToken.tokenNumber;
+
+        await existingToken.update({
+          status: 'PENDING',
+          tokenNumber: nextAvailableNumber,
+          updatedAt: new Date(),
+        });
+
+        existingToken = await Token.findOne({
+          where: { id: existingToken.id },
+          include: [{ model: Queue, as: 'queue' }]
+        });
+        return createResponse( res, 'ok', 'Skipped token re-queued successfully', {
+          ...existingToken.toJSON(),
+          message: 'Your skipped token has been re-queued after current serving.'
+        } );
       }
       return createResponse( res, 'ok', 'Token found', {
         queueId: existingToken.queueId,
@@ -299,6 +334,36 @@ router.delete(
       console.error('Cancel token error:', e.message, e.stack);
       return createError(res, { message: e.message || 'Failed to cancel token' }, 500);
     }
+  }
+);
+
+router.get(
+  '/servicing/:queueId',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    controller.getServicingTokens(req, res);
+  }
+);
+
+/**
+ * @route POST api/token/skip/:id
+ * @description Skip a token by updating its status to SKIPPED
+ * @returns JSON
+ * @access public
+ */
+router.post(
+  '/skip',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  async (req, res) => {
+    controller.skipTokens(req, res);
   }
 );
 // /**

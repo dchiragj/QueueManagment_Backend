@@ -114,6 +114,14 @@ router.get(
     controller.getCategories(req, res);
   },
 );
+// router.get('/desks/:categoryId', async (req, res) => {
+//   try {
+//     const [rows] = await db.query('SELECT id, name FROM desks WHERE category_id = ? AND is_active = 1', [req.params.categoryId]);
+//     res.json(rows.map(row => ({ key: row.id, value: row.name })));
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 /**
  * @route POST api/queue/:type?queueId=''&categoryId=''

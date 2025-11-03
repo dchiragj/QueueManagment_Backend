@@ -33,6 +33,7 @@
 // module.exports = mongoose.model('category', categorySchema);
 
 // models/category.js
+
 const { DataTypes } = require('sequelize');
 const sequelize = require( '../config/database' );
 // const sequelize = require('../config/sequelize'); // your sequelize instance

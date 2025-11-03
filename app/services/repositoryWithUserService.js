@@ -59,10 +59,9 @@ async gettokenlist(userId,role) {
     }
   }
   async getSingleQueue(userId, id) {
-    
     try {
       if (!id) return;
-      const result = await Queue.findOne({where: { id} });
+      const result = await Queue.findOne({where: {id} });
 
       if (result) return result.toJSON();
       return undefined;
@@ -71,7 +70,6 @@ async gettokenlist(userId,role) {
     }
   }
   async getSingletoken(userId, id) {
-   console.log(userId, "useridget", id, "getsingle1");
   try {
     if (!id) return;
     // Look up a queue owned by the user
@@ -80,7 +78,6 @@ async gettokenlist(userId,role) {
     const result = await this.collection.findOne({
       where: { customerId:userId, queueId: id }  
     });
-    console.log(result, "1234");
     if (result) return result.toJSON();
     return undefined;
   } catch (e) {

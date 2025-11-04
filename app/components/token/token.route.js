@@ -338,6 +338,18 @@ router.delete(
 );
 
 router.get(
+  '/token-counts/count',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    controller.getQueueTokenCounts(req, res);
+  }
+);
+
+router.get(
   '/servicing/:queueId',
   [
     passport.authenticate('jwt', { session: false, failWithError: true }),
@@ -366,6 +378,37 @@ router.post(
     controller.skipTokens(req, res);
   }
 );
+
+
+router.get(
+  '/skippedTokens/:queueId',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    controller.getSkippedTokens(req, res);
+  }
+);
+
+
+/**
+ * @route POST api/token/recover-token
+ * @description Recover a skipped token (set status back to PENDING + reassign token number)
+ * @returns JSON
+ * @access private (merchant only)
+ */
+router.post(
+  '/recover-token',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  controller.recoverSkippedToken
+);
+
 // /**
 //  * @route POST api/token/join
 //  * @description Join a queue and get a token

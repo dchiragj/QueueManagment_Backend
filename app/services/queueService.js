@@ -268,18 +268,13 @@ async create(userId, payload) {
   async getByFilter(category, merchantId, start_date, end_date, coordinates) {
   try {
     const query = {};
-
     if (category) query.category = category;
     if (merchantId) query.merchant = merchantId;
-
     // Filter by date range
     if (start_date && end_date) {
       query.start_date = { [Op.lte]: new Date(end_date) };
       query.end_date = { [Op.gte]: new Date(start_date) };
     }
-
-    // Sequelize does not natively support $near like MongoDB, for coordinates use raw SQL or PostGIS if needed
-
     const result = await Queue.findAll({ where: query });
     return result.map((item) => item.toJSON());
   } catch (e) {

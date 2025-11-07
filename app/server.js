@@ -116,7 +116,7 @@ sequelize
   .then(() => {
     server.listen(env.PORT, () => {
       console.log(
-        '%s App is running at http://localhost:%d in %s mode',
+        '%s App is running at http://192.168.2.11:%d in %s mode',
         chalk.green('✓'),
         env.PORT,
         env.NODE_ENV

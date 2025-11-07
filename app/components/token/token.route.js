@@ -295,14 +295,6 @@ router.delete(
         return createError(res, { message: 'Token not found' }, 404);
       }
 
-      // Authorization check: Only the token's customer or an admin can cancel
-      // Uncomment if you want to restrict cancellation
-      /*
-      if (token.customerId !== user.id && user.role !== 'admin') {
-        return createError(res, { message: 'Unauthorized to cancel this token' }, 403);
-      }
-      */
-
       // Check if token is already CANCELLED
       if (token.status === 'CANCELLED') {
         return createError(res, { message: 'Token is already cancelled' }, 400);
@@ -407,6 +399,30 @@ router.post(
     PassportErrorHandler.error,
   ],
   controller.recoverSkippedToken
+);
+/**
+ * @route POST api/token/complete
+ * @description Complete (serve) one or more tokens
+ * @body { tokenIds: [101, 102] }
+ * @access Merchant only
+ */
+router.post(
+  '/complete',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  controller.completeToken 
+);
+router.get(
+  '/completed/history',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  controller.getCompletedHistory
 );
 
 // /**

@@ -245,6 +245,11 @@ const Token = sequelize.define('Token', {
     allowNull: false,
     defaultValue: DataTypes.NOW,
   },
+  completedAt :{
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW,
+  }
 }, {
   tableName: 'Tokens',
   timestamps: true,

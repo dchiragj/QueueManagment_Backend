@@ -317,8 +317,6 @@ class TokenController {
    * @description Recover a skipped token - set to PENDING and reassign next available token number
    */
   async recoverSkippedToken( req, res ) {
-    console.log( "recoverSkippedToken" );
-
     try {
       const { user } = req;
       const { tokenNumber } = req.body;
@@ -405,6 +403,111 @@ class TokenController {
       return createError( res, { message: e.message || 'Failed to recover token' } );
     }
   }
+/**
+ * @description Complete token(s) - supports both single and multiple
+ */
+async completeToken(req, res) {
+  try {
+    const { user } = req;
+    const { tokenId, tokenIds} = req.body;
+
+
+    // Convert to array
+    const ids = tokenId ? [tokenId] : (Array.isArray(tokenIds) ? tokenIds : [] );
+    
+    if (ids.length === 0) {
+      return createError(res, { message: 'tokenId or tokenIds array is required' }, 400);
+    }
+
+    const completed = [];
+    const errors = [];
+
+    for (let id of ids) {
+      id = parseInt(id);
+      if (isNaN(id)) {
+        errors.push({ id, error: 'Invalid ID' });
+        continue;
+      }
+
+      const token = await Token.findOne({
+        where: { id },
+        include: [{ model: Queue, as: 'queue' }]
+      });
+
+      if (!token) {
+        errors.push({ id, error: 'Not found' });
+        continue;
+      }
+
+      if (token.status === 'COMPLETED') {
+        completed.push({ id, tokenNumber: token.tokenNumber, status: 'Already completed' });
+        continue;
+      }
+
+      await token.update({
+        status: 'COMPLETED',
+        completedAt: new Date()
+      });
+
+      completed.push({
+        id: token.id,
+        tokenNumber: token.tokenNumber,
+        status: 'COMPLETED'
+      });
+    }
+
+    if (completed.length > 0) {
+      return createResponse(res, 'ok', 'Token(s) completed', { completed, errors });
+    } else {
+      return createError(res, { message: 'No tokens completed', errors }, 400);
+    }
+
+  } catch (e) {
+    console.error(e);
+    return createError(res, { message: 'Server error' });
+  }
+}
+
+async getCompletedHistory(req, res) {
+  try {
+    const { user } = req;
+    const { queueId, categoryId } = req.query;
+
+    const tokens = await Token.findAll({
+      where: {
+        queueId,
+        categoryId: categoryId ? parseInt(categoryId) : null,
+        status: 'COMPLETED',
+        // '$queue.merchant$': user.id
+      },
+      include: [
+        { model: User, as: 'customer', attributes: ['firstName', 'lastName'] },
+        { model: Queue, as: 'queue', attributes: ['name'] }
+      ],
+      order: [['completedAt', 'DESC']],
+      limit: 50
+    });
+
+    const history = tokens.map(t => ({
+      id: t.id,
+      tokenNumber: t.tokenNumber,
+      name: `${t.customer.firstName} ${t.customer.lastName}`.trim(),
+      service: t.queue.name,
+      completedAt: t.completedAt
+    }));
+console.log(tokens,"gettoke");
+
+    // if(tokens && tokens.length){
+      const hello = tokens.map(token => token.toJSON())
+      console.log(hello,"historyhistory12ZZ",tokens.length);
+    // }
+    
+
+    return createResponse(res, 'ok', 'Completed History', {data:history});
+  } catch (e) {
+    return createError(res, e);
+  }
+}
 }
 
 const tokenController = new TokenController();

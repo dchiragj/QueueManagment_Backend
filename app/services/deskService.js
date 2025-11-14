@@ -38,7 +38,13 @@ class deskService extends RepositoryWithUserService {
       throw e;
     }
   }
-
+async getByCategory(categoryId) {
+  return await Desk.findAll({
+    where: { category_id: categoryId, is_active: 1 },
+    // attributes: ['id', 'name'],
+    // order: [['number', 'ASC']],
+  });
+}
   /**
    * @description insert mutiple items
    */
@@ -119,6 +125,7 @@ class deskService extends RepositoryWithUserService {
     if (desk && desk.authenticateDesk(payload.password)) return desk.toJSON();
     return null;
   }
+  
 }
 
 const service = new deskService();

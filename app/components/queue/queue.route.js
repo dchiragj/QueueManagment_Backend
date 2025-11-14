@@ -114,14 +114,21 @@ router.get(
     controller.getCategories(req, res);
   },
 );
-// router.get('/desks/:categoryId', async (req, res) => {
-//   try {
-//     const [rows] = await db.query('SELECT id, name FROM desks WHERE category_id = ? AND is_active = 1', [req.params.categoryId]);
-//     res.json(rows.map(row => ({ key: row.id, value: row.name })));
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
+/**
+ * @route GET api/queue/desks/:categoryId
+ * @description Get desks for a category (used when creating a queue)
+ */
+router.get(
+  '/desks/:categoryId',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    controller.getDesksByCategory(req, res);
+  }
+);
 
 /**
  * @route POST api/queue/:type?queueId=''&categoryId=''

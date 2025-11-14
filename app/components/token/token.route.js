@@ -156,7 +156,7 @@ router.post(
           queueId: queue.id,
           customerId: req.user.id,
           categoryId: parseInt( categoryId ),
-          status: ['PENDING', 'SKIPPED']
+          status: [ 'PENDING', 'SKIPPED' ]
         }
       } );
 
@@ -165,19 +165,16 @@ router.post(
       }
 
       // Find the maximum tokenNumber for this category (all queues, all customers)
-      const maxToken = await Token.max('tokenNumber', {
+      const maxToken = await Token.max( 'tokenNumber', {
         where: {
           categoryId: parseInt( categoryId )
         }
-      });
-
-      console.log('Max token for category', categoryId, ':', maxToken); // Debug log
-
+      } );
       const nextTokenNumber = maxToken ? maxToken + 1 : 1;
 
       const token = {
         queueId: queue.id,
-        queueName :queue.name,
+        queueName: queue.name,
         tokenNumber: nextTokenNumber,
         customerId: req.user.id,
         categoryId: parseInt( categoryId ),
@@ -204,45 +201,84 @@ router.post(
   ],
   async ( req, res ) => {
     try {
-      const { queueId, categoryId } = req.body;
-      if ( !queueId || !categoryId ) {
+      const { joinMethods, joinCode, link, lat, long, queueId, categoryId } = req.body;
+
+      console.log( req.body, "linktest" );
+
+      if ( !joinMethods ) {
+        return createError( res, { message: 'joinMethods is required' } );
+      }
+      if ( joinMethods === 'private' && !joinCode ) {
+        return createError( res, { message: 'joinCode is required' } );
+      }
+
+      if ( joinMethods === 'link' ) {
+        if ( !link ) {
+          return createError( res, { message: 'link is required' } );
+        }
+        const parsedUrl = new URL( link );
+        const extractedQueueId = parsedUrl.searchParams.get( "queueId" );
+        const extractedCategoryId = parsedUrl.searchParams.get( "categoryId" );
+        if ( !extractedQueueId || !extractedCategoryId ) {
+          return createError( res, { message: 'Invalid link provided' } );
+        }
+      }
+      if ( joinMethods === 'location' ) {
+        if ( !lat || !long ) {
+          return createError( res, { message: 'lat & long required' } );
+        }
+        const searchLat = parseFloat( lat );
+        const searchLong = parseFloat( long );
+        if (!searchLat || !searchLong) {
+            return createError( res, { message: 'Invalid lat & long provided' } );
+        }
+      }
+      if ( joinMethods === 'qr' && !queueId && !categoryId ) {
         return createError( res, { message: 'Queue ID or Category ID is required' } );
       }
-      if ( isNaN( categoryId ) ) {
+      if ( categoryId && isNaN( categoryId ) ) {
         return createError( res, { message: 'Category ID must be a number' } );
       }
 
-      const queue = await service.getSingleQueue( req.user.id, queueId );
+      const queue = await service.getSingleQueueByJoinMethod( req.user.id, { joinMethods, joinCode, link, lat, long, queueId, categoryId } );
       if ( !queue ) {
         return createError( res, { message: 'Queue not found' } );
       }
+      console.log( queue, "1236545" );
 
       let existingToken = await Token.findOne( {
+
         where: {
           queueId: queue.id,
           customerId: req.user.id,
-          categoryId: parseInt( categoryId ),
-          status: ['PENDING', 'SKIPPED'],  // Changed: Include SKIPPED
+          categoryId: parseInt( queue.category ),
+          status: [ 'PENDING', 'SKIPPED' ],  // Changed: Include SKIPPED
         },
       } );
 
+
       if ( !existingToken ) {
-        return createResponse( res, 'ok', 'No token found for this queue and category', null );
+        return createResponse( res, 'not ok', 'No token found for this queue and category', {
+          "queueId": queue.id,
+          "queueName": queue.name,
+          "tokenRange": `${ queue.start_number } to ${ queue.end_number }`,
+          "category": queue.category
+        } );
       }
-      if (existingToken.status === 'SKIPPED') {
-        const currentServingToken = await service.getNextToken(req.user.id, queue.id, null);  // Reuse existing service
+      if ( existingToken.status === 'SKIPPED' ) {
+        const currentServingToken = await service.getNextToken( req.user.id, queue.id, null );  // Reuse existing service
         const nextAvailableNumber = currentServingToken ? currentServingToken + 1 : existingToken.tokenNumber;
 
-        await existingToken.update({
+        await existingToken.update( {
           status: 'PENDING',
           tokenNumber: nextAvailableNumber,
           updatedAt: new Date(),
-        });
+        } );
 
-        existingToken = await Token.findOne({
+        existingToken = await Token.findOne( {
           where: { id: existingToken.id },
-          include: [{ model: Queue, as: 'queue' }]
-        });
+          include: [ { model: Queue, as: 'queue' } ]
+        } );
         return createResponse( res, 'ok', 'Skipped token re-queued successfully', {
           ...existingToken.toJSON(),
           message: 'Your skipped token has been re-queued after current serving.'
@@ -272,47 +308,47 @@ router.post(
 router.delete(
   '/delete/:id',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  async (req, res) => {
+  async ( req, res ) => {
     try {
       const { id } = req.params;
       const { user } = req;
 
       // Validate token ID
-      if (!id || isNaN(id)) {
-        return createError(res, { message: 'Valid token ID is required' }, 400);
+      if ( !id || isNaN( id ) ) {
+        return createError( res, { message: 'Valid token ID is required' }, 400 );
       }
 
       // Find the token
-      const token = await Token.findOne({
-        where: { id: parseInt(id) },
-      });
+      const token = await Token.findOne( {
+        where: { id: parseInt( id ) },
+      } );
 
-      if (!token) {
-        return createError(res, { message: 'Token not found' }, 404);
+      if ( !token ) {
+        return createError( res, { message: 'Token not found' }, 404 );
       }
 
       // Check if token is already CANCELLED
-      if (token.status === 'CANCELLED') {
-        return createError(res, { message: 'Token is already cancelled' }, 400);
+      if ( token.status === 'CANCELLED' ) {
+        return createError( res, { message: 'Token is already cancelled' }, 400 );
       }
 
       // Check if token is COMPLETED (optional: prevent cancelling completed tokens)
-      if (token.status === 'COMPLETED') {
-        return createError(res, { message: 'Cannot cancel a completed token' }, 400);
+      if ( token.status === 'COMPLETED' ) {
+        return createError( res, { message: 'Cannot cancel a completed token' }, 400 );
       }
 
       // Update token status to CANCELLED
-      await token.update({
+      await token.update( {
         status: 'CANCELLED',
         updatedAt: new Date(),
-      });
+      } );
 
       // Return success response, excluding updatedAt
-      return createResponse(res, 'ok', 'Token cancelled successfully', {
+      return createResponse( res, 'ok', 'Token cancelled successfully', {
         id: token.id,
         queueId: token.queueId,
         queueName: token.queueName,
@@ -321,10 +357,10 @@ router.delete(
         categoryId: token.categoryId,
         status: token.status,
         createdAt: token.createdAt,
-      });
-    } catch (e) {
-      console.error('Cancel token error:', e.message, e.stack);
-      return createError(res, { message: e.message || 'Failed to cancel token' }, 500);
+      } );
+    } catch ( e ) {
+      console.error( 'Cancel token error:', e.message, e.stack );
+      return createError( res, { message: e.message || 'Failed to cancel token' }, 500 );
     }
   }
 );
@@ -332,24 +368,24 @@ router.delete(
 router.get(
   '/token-counts/count',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  (req, res) => {
-    controller.getQueueTokenCounts(req, res);
+  ( req, res ) => {
+    controller.getQueueTokenCounts( req, res );
   }
 );
 
 router.get(
   '/servicing/:queueId',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  (req, res) => {
-    controller.getServicingTokens(req, res);
+  ( req, res ) => {
+    controller.getServicingTokens( req, res );
   }
 );
 
@@ -362,12 +398,12 @@ router.get(
 router.post(
   '/skip',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  async (req, res) => {
-    controller.skipTokens(req, res);
+  async ( req, res ) => {
+    controller.skipTokens( req, res );
   }
 );
 
@@ -375,12 +411,12 @@ router.post(
 router.get(
   '/skippedTokens/:queueId',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  (req, res) => {
-    controller.getSkippedTokens(req, res);
+  ( req, res ) => {
+    controller.getSkippedTokens( req, res );
   }
 );
 
@@ -394,7 +430,7 @@ router.get(
 router.post(
   '/recover-token',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
@@ -409,16 +445,16 @@ router.post(
 router.post(
   '/complete',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],
-  controller.completeToken 
+  controller.completeToken
 );
 router.get(
   '/completed/history',
   [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
     PassportErrorHandler.success,
     PassportErrorHandler.error,
   ],

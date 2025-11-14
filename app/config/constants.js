@@ -5,7 +5,7 @@ module.exports = {
   ADMIN_EMAILS: [''],
   WHITELIST: {
     user: {
-      register: ['firstName', 'lastName', 'email', 'password', 'mobileNumber', 'role'],
+      register: ['firstName', 'lastName', 'email', 'password', 'mobileNumber', 'role','businessName','businessAddress','businessRegistrationNumber','businessPhone'],
       updateProfile: ['name', 'mobile'],
       updateEmail: ['email'],
       updatePassword: ['password'],
@@ -55,4 +55,10 @@ module.exports = {
     6: 'COMPLETED',
     7: 'CANCELLED',
   }),
+  JOIN_METHODS: {
+    PRIVATE: 'private',
+    LINK:    'link',
+    LOCATION:'location',
+    QR:      'qr',
+  },
 };

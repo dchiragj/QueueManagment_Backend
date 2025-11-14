@@ -216,6 +216,11 @@ addNewUser(obj) {
         verificationCode: verificationCode,
         isEmailVerified: false,
         isOnboarding: true,
+        // Business fields (optional unless merchant)
+      businessName: body.businessName?.trim() || null,
+      businessAddress: body.businessAddress?.trim() || null,
+      businessRegistrationNumber: body.businessRegistrationNumber?.trim() || null,
+      businessPhone: body.businessPhone?.trim() || null,
       });
 
       await this.sendVerificationCode(user);

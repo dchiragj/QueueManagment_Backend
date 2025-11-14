@@ -7,22 +7,17 @@ const { PS_TYPES, USER_ROLE_TYPES } = require('../../config/constants');
 const queue = require( '../../models/queue' );
 const Queue = require( '../../models/queue' );
 const moment = require('moment');
+const Desk = require( '../../models/desk' );
 
 class QueueController {
   /**
    * @description get queue list
    */
   async getQueueList(req, res) {
-    console.log("usergetQueueList");
     
     try {
       const { user } = req;
-      console.log(user,"usergetQueueList");
-      
       const { category, merchantId, start_date, end_date, coordinates } = req.query;
-      console.log(category, merchantId, start_date, end_date, coordinates,"requry");
-      
-      // console.log('req.query', req.query);
       const items = await service.getByFilter(category, merchantId, start_date, end_date, coordinates);
       if (items) return createResponse(res, 'ok', 'List', items);
       else return createError(res, { message: 'Unable to fetch queue list' });
@@ -109,7 +104,32 @@ class QueueController {
       return createError(res, e);
     }
   }
+/**
+ * @description Get desks by categoryId
+ */
+async getDesksByCategory(req, res) {
+  try {
+    const { categoryId } = req.params;
 
+    // ← desks is an ARRAY
+    const desks = await deskService.getByCategory(categoryId);
+
+    // ← Check if we got data
+    if (desks && desks.length > 0) {
+      const list = desks.map(d => ({
+        key: d.id,
+        value: d.name,
+      }));
+      return createResponse(res, 'ok', 'Desks', list);
+    }
+
+    // ← No desks found
+    return createError(res, { message: 'No desks found for this category' });
+  } catch (e) {
+    console.error('getDesksByCategory error:', e);
+    return createError(res, e);
+  }
+}
   /**
    * @description create problems/solutions based on type add bulk items
    */

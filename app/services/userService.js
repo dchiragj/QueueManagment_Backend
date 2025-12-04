@@ -83,7 +83,6 @@ async validateUserCredential(username, password) {
         ]
       }
     });
-
     if (!user) {
       console.log('User not found');
       return null;
@@ -577,14 +576,17 @@ async updateUserProfile(user_id, obj, file) {
     if (!user) throw new Error('User not exists');
 
     const { firstName, lastName, address, gender } = obj;
+    console.log(firstName,lastName,address,gender,"values");
+    
     if (!firstName) throw new Error('First name is required');
     if (!lastName) throw new Error('Last name is required');
     if (!address) throw new Error('Address is required');
     if (!gender) throw new Error('Gender is required');
 
     let profileImageUrl = user.ProfileUrl || null;
+    
     if (file) {
-      profileImageUrl = `Uploads/${file.filename}`;
+   profileImageUrl = `Uploads/${file.filename}`;
       console.log('File uploaded, new ProfileUrl:', profileImageUrl);
     }
 

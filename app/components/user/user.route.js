@@ -33,26 +33,24 @@ router.get(
  */
 router.post(
   '/profile',
-  [
-    passport.authenticate('jwt', { session: false, failWithError: true }),
-    PassportErrorHandler.success,
-    PassportErrorHandler.error,
-  ],
-  upload.single('ProfileUrl'),
+  passport.authenticate('jwt', { session: false }),
   (req, res, next) => {
-    console.log(req.body, "url_file1");
-    
-    if (req.fileValidationError) {
-      console.error('Multer error:', req.fileValidationError.message);
-      return res.status(400).json({ message: req.fileValidationError.message });
+    console.log("Headers:", req.headers);
+    console.log("Body keys:", Object.keys(req.body || {}));
+    next();
+  },
+  // upload.single('ProfileUrl'),
+  (req, res, next) => {
+    console.log("After multer - req.body:", req.body);
+    console.log("After multer - req.file:", req.file);
+
+    if (!req.file && req.body.ProfileUrl) {
+      console.log("File missing! Check client FormData field name and filename property");
     }
-    console.log('Request body:', req.body, 'File:', req.file); // Debug
     next();
   },
   UserValidations.updateProfile,
-  (req, res) => {
-    UserController.updateUser(req, res);
-  }
+  UserController.updateUser
 );
 
 module.exports = router;

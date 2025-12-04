@@ -5,6 +5,7 @@ const passport = require('passport');
 const PassportErrorHandler = require('../../middleware/passportErrorResponse');
 const AuthController = require('./auth.controller');
 const AuthValidations = require('./auth.validations');
+const  User  = require('../../models/user');
 
 /**
  * @route POST api/auth/login
@@ -110,4 +111,22 @@ router.post(
     AuthController.verifyEmailCode(req, res);
   },
 );
+
+router.post('/save-fcm-token',[
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ], async (req, res) => {
+  const { fcmToken } = req.body;
+  try {
+    await User.update(
+      { fcmToken },
+      { where: { id: req.user.id } }
+    );
+
+    res.json({ success: true, message: 'FCM Token saved!' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 module.exports = router;

@@ -1,4 +1,4 @@
-const { hashSync, compareSync, genSaltSync ,compare } = require('bcrypt-nodejs');
+const { hashSync, compareSync, genSaltSync, compare } = require('bcrypt-nodejs');
 const jwt = require('jsonwebtoken');
 const sequelize = require('../config/database');
 const { DataTypes } = require('sequelize');
@@ -19,7 +19,7 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     unique: true,
   },
-  NormalizedEmail: { 
+  NormalizedEmail: {
     type: DataTypes.STRING,
     unique: true,
     allowNull: false,
@@ -31,7 +31,7 @@ const User = sequelize.define('User', {
   mobileNumber: DataTypes.STRING,
   address: DataTypes.STRING,
   gender: DataTypes.STRING,
-   ProfileUrl: {
+  ProfileUrl: {
     type: DataTypes.STRING, // Added for profile image
     allowNull: true,
   },
@@ -49,10 +49,10 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW, // Sequelize will handle it
   },
-  Otp:{
-    type:DataTypes.NUMBER,
-    defaultValue:null,
-      allowNull: true,
+  Otp: {
+    type: DataTypes.NUMBER,
+    defaultValue: null,
+    allowNull: true,
   },
   OtpExpiry: {
     type: DataTypes.DATE,
@@ -63,30 +63,34 @@ const User = sequelize.define('User', {
     defaultValue: DataTypes.NOW,
   },
   businessName: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    businessAddress: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    businessRegistrationNumber: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    businessPhone: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  businessAddress: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  businessRegistrationNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  businessPhone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  fcmToken: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+  },
   role: {
-  type: DataTypes.STRING(50),
-  allowNull: false,
-  defaultValue: 'user',  // or whatever makes sense in your app
-},
+    type: DataTypes.STRING(50),
+    allowNull: false,
+    defaultValue: 'user',  // or whatever makes sense in your app
+  },
 
 }, {
   hooks: {
-    beforeCreate: (user) => {  
+    beforeCreate: (user) => {
       if (user.password) {
         user.password = hashSync(user.password, genSaltSync(8));
       }
@@ -110,7 +114,7 @@ const User = sequelize.define('User', {
 
 // Compare password
 // Try async approach instead
-User.prototype.authenticateUser = async function(password) {
+User.prototype.authenticateUser = async function (password) {
   try {
     const isMatch = await bcrypt.compare(password, this.password);
     return isMatch;
@@ -121,7 +125,7 @@ User.prototype.authenticateUser = async function(password) {
 };
 
 // Create JWT
-User.prototype.createToken = function() {
+User.prototype.createToken = function () {
   return jwt.sign(
     {
       id: this.id,
@@ -134,7 +138,8 @@ User.prototype.createToken = function() {
   );
 };
 
-User.prototype.toAuthJSON = function() {
+User.prototype.toAuthJSON = function () {
+  // console.log(profileUrl,"profileUrl-profileUrl");
   const profileUrl = this.ProfileUrl
     ? `${BASE_URL}/uploads/${this.ProfileUrl}`
     : null;
@@ -148,6 +153,8 @@ User.prototype.toAuthJSON = function() {
     isActive: this.isActive,
     role: this.role,
     ProfileUrl: profileUrl,   // 👈 backend URL
+    gender:this.gender,
+    address:this.address,
     token: `${this.createToken()}`,
     verificationRequired: !this.isEmailVerified,
     onboardingRequired: this.isOnboarding,
@@ -155,8 +162,8 @@ User.prototype.toAuthJSON = function() {
     businessAddress: this.businessAddress || null,
     businessRegistrationNumber: this.businessRegistrationNumber || null,
     businessPhone: this.businessPhone || null,
-    
 
+    
   };
 };
 

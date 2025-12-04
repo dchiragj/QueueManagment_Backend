@@ -194,7 +194,7 @@ class QueueService extends RepositoryWithUserService {
         if ( !fs.existsSync( qrDir ) ) fs.mkdirSync( qrDir, { recursive: true } );
 
         // 6. BUILD EMAIL CONTENT (method-specific)
-        const baseUrl = process.env.BASE_URL;
+        const baseUrl = process.env.REACT_APP_APIURL;
         const tokenRange = `${ item.start_number } to ${ item.end_number }`;
         let emailText = `A new queue has been created: **${ item.name }**\n`;
         emailText += `Token numbers: ${ tokenRange }\n\n`;

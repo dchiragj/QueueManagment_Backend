@@ -1,6 +1,15 @@
 const bCrypt = require('bcrypt-nodejs');
 const _ = require('lodash');
 const { isEmpty, isString } = require('../validator');
+const Token = require('../../models/token');
+const User = require('../../models/user');
+
+const admin = require('firebase-admin');
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(require('../../../firebase-service-account.json')),
+  });
+}
 
 /**
  * @param {Object} res
@@ -269,3 +278,152 @@ exports.getNextNumber = (key = '', type = 1) => {
     return key;
   }
 };
+
+exports.sendNotificationNextToken = async (queueId, categoryId) => {
+  try {
+      const tokens = await Token.findAll({
+        where: {
+          queueId,
+          categoryId,
+          // isSkipped: false,
+          status: 'PENDING',
+        },
+        include: [{ model: User, attributes: ['fcmToken', 'firstName', 'lastName'], as: 'customer' }],
+        order: [['tokenNumber', 'ASC']],
+      });
+      // if (tokens.length < 3) {
+      //   return res.json({ message: 'Less than 3 tokens, no notification sent' });
+      // }
+
+      const thirdToken = tokens[0];
+      const user = thirdToken.customer;
+
+      if (!user?.fcmToken) {
+        return { message: 'No FCM token for user', tokenNumber: thirdToken.tokenNumber };
+      }
+
+      const message = {
+        token: user.fcmToken,
+        notification: {
+          title: 'Your turn has arrived!',
+          body: `Token ${thirdToken.tokenNumber} - Please come now!`,
+        },
+        data: {
+          type: 'turn_approaching',
+          tokenNumber: thirdToken.tokenNumber.toString(),
+          queueId: queueId.toString(),
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'queue_alert',
+          },
+        },
+      };
+
+      await admin.messaging().send(message);
+      return {
+        success: true,
+        notifiedToken: thirdToken.tokenNumber,
+        customer: `${user.firstName} ${user.lastName}`,
+      };
+
+    } catch (error) {
+      console.error('FCM Error:', error.message);
+      return { error: error.message };
+    }
+  // }
+  // try {
+
+  //   // 1️⃣ Find the ACTIVE token
+  //   const activeToken = await Token.findOne({
+  //     where: {
+  //       queueId,
+  //       categoryId,
+  //       status: "ACTIVE",
+  //     },
+  //     include: [
+  //       {
+  //         model: User,
+  //         as: "customer",
+  //         attributes: ["fcmToken", "firstName", "lastName"]
+  //       }
+  //     ],
+  //     order: [["tokenNumber", "ASC"]],
+  //   });
+
+  //   if (!activeToken) {
+  //     console.log("No ACTIVE token found");
+  //     return;
+  //   }
+
+  //   // 2️⃣ Notify ACTIVE USER (Your turn)
+  //   if (activeToken.customer?.fcmToken) {
+  //     await admin.messaging().send({
+  //       token: activeToken.customer.fcmToken,
+  //       notification: {
+  //         title: "Your turn has arrived!",
+  //         body: `Token ${activeToken.tokenNumber} - Please come now.`,
+  //       },
+  //       data: {
+  //         type: "your_turn",
+  //         tokenNumber: activeToken.tokenNumber.toString(),
+  //         queueId: queueId.toString(),
+  //       },
+  //       android: { priority: "high" }
+  //     });
+  //   }
+
+  //   // 3️⃣ Notify NEXT USER (Turn approaching)
+  //   const approachingToken = await Token.findOne({
+  //     where: {
+  //       queueId,
+  //       categoryId,
+  //       tokenNumber: activeToken.tokenNumber + 1,
+  //       status: "PENDING"
+  //     },
+  //     include: [
+  //       {
+  //         model: User,
+  //         as: "customer",
+  //         attributes: ["fcmToken", "firstName", "lastName"]
+  //       }
+  //     ]
+  //   });
+
+  //   if (approachingToken?.customer?.fcmToken) {
+  //     await admin.messaging().send({
+  //       token: approachingToken.customer.fcmToken,
+  //       notification: {
+  //         title: "Your turn is coming soon",
+  //         body: `Token ${approachingToken.tokenNumber} - Be ready, your turn is near.`,
+  //       },
+  //       data: {
+  //         type: "turn_approaching",
+  //         tokenNumber: approachingToken.tokenNumber.toString(),
+  //         queueId: queueId.toString(),
+  //       },
+  //       android: { priority: "high" }
+  //     });
+
+  //     return {
+  //       success: true,
+  //       active: activeToken.tokenNumber,
+  //       approaching: approachingToken.tokenNumber
+  //     };
+  //   }
+
+  //   return {
+  //     success: true,
+  //     active: activeToken.tokenNumber,
+  //     approaching: null
+  //   };
+
+  // } catch (error) {
+  //   console.error("Error in sendNotificationNextToken:", error.message);
+  //   return { error: error.message };
+  // }
+};
+
+

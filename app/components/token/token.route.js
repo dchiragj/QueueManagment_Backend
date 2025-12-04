@@ -461,6 +461,16 @@ router.get(
   controller.getCompletedHistory
 );
 
+router.get(
+  '/current/token',
+  [
+    passport.authenticate( 'jwt', { session: false, failWithError: true } ),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  controller.getCurrentToken
+);
+
 // /**
 //  * @route POST api/token/join
 //  * @description Join a queue and get a token

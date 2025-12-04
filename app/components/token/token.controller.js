@@ -582,11 +582,10 @@ class TokenController {
             : "N/A"
         }))
       };
-      console.log(response, "currenttokenresponse");
-if (upcomingTokens && upcomingTokens.length) {
-  await sendNotificationNextToken(upcomingTokens[0].queueId, upcomingTokens[0].categoryId);
-}
-console.log(upcomingTokens[0].queueId, upcomingTokens[0].categoryId,"upcomingTokens");
+
+             if (upcomingTokens && upcomingTokens.length) {
+              await sendNotificationNextToken(upcomingTokens[0].queueId, upcomingTokens[0].categoryId);
+             }
       return createResponse(res, "ok", "Current token fetched", response);
 
     } catch (error) {

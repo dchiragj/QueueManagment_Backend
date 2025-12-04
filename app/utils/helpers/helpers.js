@@ -279,7 +279,7 @@ exports.getNextNumber = (key = '', type = 1) => {
   }
 };
 
-exports.sendNotificationNextToken = async (queueId, categoryId) => {
+ exports.sendNotificationNextToken = async (queueId, categoryId) => {
   try {
       const tokens = await Token.findAll({
         where: {
@@ -296,6 +296,7 @@ exports.sendNotificationNextToken = async (queueId, categoryId) => {
       // }
 
       const thirdToken = tokens[0];
+      console.log(thirdToken, "thirdtoken123");
       const user = thirdToken.customer;
 
       if (!user?.fcmToken) {
@@ -424,6 +425,48 @@ exports.sendNotificationNextToken = async (queueId, categoryId) => {
   //   console.error("Error in sendNotificationNextToken:", error.message);
   //   return { error: error.message };
   // }
+
+  
 };
+ exports.sendNotificationNewToken = async (fcmToken,queueName, tokenNumber) => {
+  try {
+    if (!fcmToken) {
+      return { message: 'No FCM token for user' };
+    }
+      
+
+      const message = {
+        token:fcmToken,
+        notification: {
+          title: 'New Token Generated',
+          body: `Token ${tokenNumber} - for Queue ${queueName}`,
+        },
+        data: {
+          type: 'turn_approaching',
+          tokenNumber: tokenNumber.toString(),
+          queueName: queueName.toString(),
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'queue_alert',
+          },
+        },
+      };
+
+      await admin.messaging().send(message);
+      return {
+        success: true,
+        message: 'Notified to merchant',
+        // customer: `${user.firstName} ${user.lastName}`,
+      };
+
+    } catch (error) {
+      console.error('FCM Error:', error.message);
+      return { error: error.message };
+    }
+};
+
 
 

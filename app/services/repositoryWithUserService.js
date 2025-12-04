@@ -70,6 +70,20 @@ class RepositoryWithUserService {
       throw e;
     }
   }
+    async getSingleQueuenextToken( userId, id ) {
+    try {
+      if ( !id ) return;
+      const result = await Queue.findOne( {
+         where: { id }, 
+        include: [{ model: User, attributes: ['fcmToken'], as: 'user' }],
+      } );
+
+      if ( result ) return result.toJSON();
+      return undefined;
+    } catch ( e ) {
+      throw e;
+    }
+  }
   async getSingleQueueByJoinMethod( userId, options = {} ) {
     try {
       const { joinMethods, joinCode, link, lat, long, queueId, categoryId } = options;
@@ -158,7 +172,7 @@ class RepositoryWithUserService {
     try {
       if ( !id ) return;
       // Look up a queue owned by the user
-      console.log( this.collection, "this.collection" );
+
 
       const result = await this.collection.findOne( {
         where: { customerId: userId, queueId: id }
@@ -182,7 +196,6 @@ class RepositoryWithUserService {
   }
 
   async create( userId, payload ) {
-    console.log( this.collection, "this" );
 
     try {
       if ( !payload ) return;

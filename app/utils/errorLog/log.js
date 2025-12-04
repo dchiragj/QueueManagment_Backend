@@ -15,8 +15,7 @@ const isProd = !isDev;
 
 // eslint-disable-next-line no-unused-vars
 module.exports = (err, req, res, next) => {
-  console.log('isProd', isProd);
-  console.log("image payload",res);
+
   
   if (!err) {
     return new APIError('Error with the server!', HTTPStatus.INTERNAL_SERVER_ERROR, true);

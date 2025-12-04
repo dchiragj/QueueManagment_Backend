@@ -48,7 +48,6 @@ async forgotPassword(req, res) {
       const result = await UserService.forgotPassword(email);
 
       if (result.success) {
-        console.log('Forgot password success for:', email);
         createResponse(res, 'ok', 'OTP sent to your email', { email: result.email });
       } else {
         createError(res, {}, { message: 'Unable to send OTP, please try again' });

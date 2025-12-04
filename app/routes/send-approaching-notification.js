@@ -27,7 +27,6 @@ router.post('/notify-third', async (req, res) => {
       order: [['tokenNumber', 'ASC']],
     });
 
-    console.log(tokens, "tokez123");
 
     // if (tokens.length < 3) {
     //   return res.json({ message: 'Less than 3 tokens, no notification sent' });
@@ -35,7 +34,6 @@ router.post('/notify-third', async (req, res) => {
 
     const thirdToken = tokens[0].toJSON();
     const user = thirdToken.customer;
-    console.log(user, "userfcm123");
 
     if (!user?.fcmToken) {
       return res.json({ message: 'No FCM token for user', tokenNumber: thirdToken.tokenNumber });

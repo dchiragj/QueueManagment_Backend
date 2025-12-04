@@ -243,7 +243,6 @@ class QueueService extends RepositoryWithUserService {
         };
 
         await transporter.sendMail( mailOptions );
-        console.log( 'Queue-creation email sent' );
 
         // 8. RETURN FRESH QUEUE (with joinCode if private)
         return item;

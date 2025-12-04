@@ -69,7 +69,6 @@ router.post('/reset-password',  (req, res) => {
   AuthController.resetPassword(req, res);
 });
 router.post('/verify-otp', AuthValidations.verifyOtp, (req, res) => {
-  console.log("verify-otp");
   
   AuthController.verifyOtp(req, res);
 });

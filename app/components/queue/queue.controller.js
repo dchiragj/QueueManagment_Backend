@@ -201,7 +201,6 @@ async getDesksByCategory(req, res) {
    * @description get item details
    */
   async getDetails(req, res) {
-    console.log("getdetails");
     try {
       const { user } = req;
       const { id } = req.params;

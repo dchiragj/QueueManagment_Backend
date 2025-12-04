@@ -6,7 +6,7 @@ const PassportErrorHandler = require( '../../middleware/passportErrorResponse' )
 const controller = require( './token.controller' );
 const validations = require( './token.validations' );
 const Queue = require( '../../models/queue' );
-const { createError, createResponse } = require( '../../utils/helpers' );
+const { createError, createResponse, sendNotificationNewToken } = require( '../../utils/helpers' );
 const Token = require( '../../models/token' );
 const User = require( '../../models/user' );
 const service = require( '../../services/tokenService' );
@@ -144,7 +144,7 @@ router.post(
         return createError( res, { message: 'Category ID must be a number' } );
       }
       // Fetch queue and verify ownership
-      const queue = await service.getSingleQueue( req.user.id, queueId );
+      const queue = await service.getSingleQueuenextToken( req.user.id, queueId );
 
       if ( !queue ) {
         return createError( res, { message: 'Queue not found' } );
@@ -182,9 +182,13 @@ router.post(
         createdAt: new Date(),
         updatedAt: new Date(),
       };
+      console.log(req.user);
+      
       // Save token
       const savedToken = await Token.create( token );
+      await sendNotificationNewToken(queue.user.fcmToken,queue.name, nextTokenNumber)
       return createResponse( res, 'ok', 'Token generated successfully', savedToken );
+
     } catch ( e ) {
       console.error( 'Generate token error:', e.message, e.stack );
       return createError( res, e );
@@ -202,9 +206,6 @@ router.post(
   async ( req, res ) => {
     try {
       const { joinMethods, joinCode, link, lat, long, queueId, categoryId } = req.body;
-
-      console.log( req.body, "linktest" );
-
       if ( !joinMethods ) {
         return createError( res, { message: 'joinMethods is required' } );
       }
@@ -244,10 +245,7 @@ router.post(
       if ( !queue ) {
         return createError( res, { message: 'Queue not found' } );
       }
-      console.log( queue, "1236545" );
-
       let existingToken = await Token.findOne( {
-
         where: {
           queueId: queue.id,
           customerId: req.user.id,

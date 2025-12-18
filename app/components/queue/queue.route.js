@@ -8,6 +8,7 @@ const validations = require('./queue.validations');
 const Token = require('../../models/token');
 const User = require('../../models/user');
 const { createResponse, createError } = require('../../utils/helpers');
+const Queue = require('../../models/queue');
 
 /**
  * @route GET api/queue
@@ -256,20 +257,14 @@ router.get('/:queueId/history', async (req, res) => {
     if (!mobile || mobile.replace(/\D/g, '').length < 10) {
       return createError(res, { message: 'Valid 10-digit mobile number required' });
     }
-
     const cleanMobile = mobile.replace(/\D/g, '').slice(-10);
-
     // Find user by mobile
     const user = await User.findOne({
-      where: { mobileNumber: cleanMobile } 
+      where: { mobileNumber: cleanMobile }
     });
-
-    console.log(user,queueId,'Found user for mobile:', user ? user.id : 'None');
-
     if (!user) {
       return createResponse(res, 'ok', 'No user found', { hasToken: false });
     }
-
     // Look for PENDING token in this queue
     const token = await Token.findOne({
       where: {
@@ -288,15 +283,32 @@ router.get('/:queueId/history', async (req, res) => {
       ],
       attributes: ['tokenNumber', 'status', 'createdAt'],
       order: [['createdAt', 'DESC']]
-    });  
+    });
+
+    const usersAllTokens = await Token.findAll({
+      where: {
+        customerId: user.id
+      },
+      include: [
+        {
+          model: Queue, // Queue model
+          as: 'queue',
+          attributes: ['id', 'name']
+        }
+      ],
+      attributes: ['id', 'tokenNumber', 'status', 'queueId', 'createdAt', 'completedAt'],
+      order: [['createdAt', 'DESC']]
+    });
+
     if (!token) {
       return createResponse(res, 'ok', 'No active token', {
         hasToken: false,
         User: {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        mobileNumber: user.mobileNumber
-      }
+          firstName: user.firstName,
+          lastName: user.lastName,
+          mobileNumber: user.mobileNumber
+        },
+        usersAllTokens
       });
     }
 
@@ -305,6 +317,7 @@ router.get('/:queueId/history', async (req, res) => {
       tokenNumber: token.tokenNumber,
       status: token.status,
       createdAt: token.createdAt,
+      usersAllTokens
     });
 
   } catch (error) {
@@ -312,6 +325,69 @@ router.get('/:queueId/history', async (req, res) => {
     return createError(res, { message: 'Server error' });
   }
 });
+// route: GET /api/user/token-history?mobile=8200956950
+// router.get('//token-history', async (req, res) => {
+//   try {
+//     const { mobile } = req.query;
+
+//     if (!mobile || mobile.replace(/\D/g, '').length < 10) {
+//       return createError(res, { message: 'Valid 10-digit mobile number required' });
+//     }
+
+//     const cleanMobile = mobile.replace(/\D/g, '').slice(-10);
+
+//     const user = await User.findOne({
+//       where: { mobileNumber: cleanMobile }
+//     });
+
+//     if (!user) {
+//       return createResponse(res, 'ok', 'No user found with this mobile', {
+//         hasToken: false,
+//         tokens: []
+//       });
+//     }
+
+//     const allTokens = await Token.findAll({
+//       where: {
+//         customerId: user.id
+//       },
+//       include: [
+//         {
+//           model: Queue, // Queue model
+//           as: 'queue',
+//           attributes: ['id', 'name']
+//         }
+//       ],
+//       attributes: ['id', 'tokenNumber', 'status', 'queueId', 'createdAt', 'completedAt'],
+//       order: [['createdAt', 'DESC']]
+//     });
+
+//     return createResponse(res, 'ok', 'Full token history fetched', {
+//       hasToken: allTokens.length > 0,
+//       totalTokens: allTokens.length,
+//       user: {
+//         firstName: user.firstName,
+//         lastName: user.lastName,
+//         mobileNumber: user.mobileNumber
+//       },
+//       tokens: allTokens.map(t => ({
+//         tokenId: t.id,
+//         tokenNumber: t.tokenNumber,
+//         status: t.status,
+//         queueId: t.queueId,
+//         queueName: t.queue?.name || 'Unknown Queue',
+//         location: t.queue?.location || null,
+//         createdAt: t.createdAt,
+//         completedAt: t.completedAt
+//       }))
+//     });
+
+//   } catch (error) {
+//     console.error('Full history API error:', error);
+//     return createError(res, { message: 'Server error' });
+//   }
+// });
+
 /**
  * @route DELETE api/queue/delete/:id
  * @description Delete a queue by ID

@@ -434,7 +434,6 @@ exports.getNextNumber = (key = '', type = 1) => {
       return { message: 'No FCM token for user' };
     }
       
-
       const message = {
         token:fcmToken,
         notification: {

@@ -73,16 +73,16 @@ const http = require('http');
 const express = require('express');
 const chalk = require('chalk');
 const fs = require('fs').promises; // For file operations if needed
-const middlewares = require('./middleware');
-const routes = require('./routes');
-const env = require('./config/env');
-const sequelize = require('./config/database');
-const logErrorService = require('./utils/errorLog/log');
+const middlewares = require('./app/middleware');
+const routes = require('./app/routes');
+const env = require('./app/config/env');
+const sequelize = require('./app/config/database');
+const logErrorService = require('./app/utils/errorLog/log');
 const path = require('path');
 const app = express();
 const server = http.Server(app);
 const cors = require('cors');
-const router = require( './components/auth/auth.route' );
+const router = require( './app/components/auth/auth.route' );
 app.use(cors());
 
 router.use('/uploads', express.static('uploads'));

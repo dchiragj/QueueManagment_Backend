@@ -8,8 +8,8 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "start": "node app/server.js",
-    "dev": "cross-env APP_ENV=development nodemon app/server.js",
+    "start": "node index.js",
+    "dev": "cross-env APP_ENV=development nodemon index.js",
     "test": "npm run test-jest && npm run lint && npm run test-format",
     "test-jest": "cross-env APP_ENV=test jest",
     "lint": "eslint --max-warnings 0 app",

@@ -13,6 +13,7 @@ const service = require('../../services/tokenService');
 const { hashSync, genSaltSync } = require('bcryptjs');
 const Category = require('../../models/category');
 const twilio = require("twilio");
+const { Op } = require('sequelize');
 
 const client = new twilio(
   process.env.SMS_TWILIO_ACCOUNT_SID,
@@ -391,6 +392,8 @@ router.post('/generate-token-web', async (req, res) => {
     const formatTime = (t) => (t ? t.toString().slice(0, 5) : 'N/A');
     const startTime = queue.startTime ? formatTime(queue.startTime) : '09:00';
     const endTime = queue.endTime ? formatTime(queue.endTime) : '18:00';
+    const trackingLink = `${process.env.WEB_JOIN_DOMAIN}/tokenstatus/${token.id}`
+    console.log(trackingLink, "trackingLink");
 
     // Today's date
     const today = new Date().toLocaleDateString('en-GB'); // e.g., 10/12/2025
@@ -402,6 +405,9 @@ ${queue.name}
 🔢 Token No: ${nextTokenNumber}
  Date: ${today}
 ⏰ Time: ${startTime} - ${endTime}
+
+👀 Track live status:
+${trackingLink}
 
 Please arrive on time.
 
@@ -480,16 +486,16 @@ router.get('/queue/:queueId/:categoryId', async (req, res) => {
           required: false,
           as: 'categ',
         },
-         {
+        {
           model: User,                    // ← Add this
           as: 'user',                    // ← Match the alias you defined
-          attributes: ['businessName', 'businessAddress'], // Only needed fields
+          attributes: ['businessName', 'businessAddress','mobileNumber'], // Only needed fields
           required: true,                 // Queue must have an owner
         },
       ],
     });
-    console.log(User,"testuser");
-    
+    console.log(User, "testuser");
+
     console.log(queue.toJSON().isActive, "tokenqueue");
     if (!queue) {
       return createError(res, { message: 'Queue not found' });
@@ -513,6 +519,7 @@ router.get('/queue/:queueId/:categoryId', async (req, res) => {
       // Add business details
       businessName: queue.user?.businessName || null,
       businessAddress: queue.user?.businessAddress || null,
+      mobileNumber:queue.user.mobileNumber || null
 
     });
   } catch (error) {
@@ -699,6 +706,99 @@ router.get(
   controller.getCurrentToken
 );
 
+router.get('/tokenstatus/:tokenId', async (req, res) => {
+  try {
+    const { tokenId } = req.params;
+    const token = await Token.findByPk(tokenId, {
+      attributes: ['id', 'tokenNumber', 'queueName', 'categoryId', 'createdAt', 'completedAt', 'status',],
+      include: [
+        {
+          model: Queue,
+          as: 'queue',
+          attributes: ['name'],
+          required: false
+        }
+      ]
+    });
+
+    if (!token) {
+      return res.status(404).json({
+        error: 'Token not found'
+      });
+    }
+
+    const category = await Category.findByPk(token.categoryId, {
+      attributes: ['name']
+    });
+
+    const currentServing = await Token.findOne({
+      where: {
+        categoryId: token.categoryId,
+        status: 'SERVING'
+      },
+      order: [['tokenNumber', 'ASC']],
+      attributes: ['tokenNumber']
+    });
+    // Tokens ahead
+    const tokensAhead = await Token.count({
+      where: {
+        categoryId: token.categoryId,
+        tokenNumber: { [Op.lt]: token.tokenNumber },
+        status: 'PENDING'
+      }
+    });
+
+    // Status message for frontend
+    let statusMessage = '';
+    if (token.status === 'COMPLETED') {
+      statusMessage = '✅ Your token has been served.';
+    } else if (token.status === 'SKIPPED') {
+      statusMessage = '⏭️ Your token was skipped. Please contact the counter.';
+    } else if (tokensAhead === 0) {
+      statusMessage = "🎉 It's your turn! Please proceed now.";
+    } else if (tokensAhead === 1) {
+      statusMessage = "⏳ You're next! Get ready.";
+    } else {
+      statusMessage = `⏳ ${tokensAhead} tokens ahead of you.`;
+    }
+
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-GB'); // 25/12/2025
+
+    const queueStart = token.queue?.startTime || '10:00'; // HH:MM format (24-hour)
+    const queueEnd = token.queue?.endTime || '18:00';
+
+    // 24-hour to 12-hour with AM/PM
+    const formatTo12Hour = (time24) => {
+      if (!time24) return 'N/A';
+      const [hour, minute] = time24.split(':');
+      const h = parseInt(hour);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hour12 = h % 12 || 12;
+      return `${hour12}:${minute} ${ampm}`;
+    };
+    const startTime12 = formatTo12Hour(queueStart);
+    const endTime12 = formatTo12Hour(queueEnd);
+    const timeSlot = `${formattedDate} ${startTime12} - ${endTime12}`;
+
+    // Success response
+    return createResponse(res, 'ok', 'Token status fetched successfully', {
+      tokenNumber: token.tokenNumber,
+      queueName: token.queueName || token.queue?.name || 'Unknown Queue',
+      categoryName: category?.name || 'General',
+      status: token.status,
+      currentServingToken: currentServing?.tokenNumber || null,
+      tokensAhead,
+      statusMessage,
+      timeSlot,
+      updatedAt: token.updatedAt // optional: last update time
+    });
+
+  } catch (error) {
+    console.error('Token status error:', error);
+    return createError(res, { message: 'Something went wrong' });
+  }
+});
 // /**
 //  * @route POST api/token/join
 //  * @description Join a queue and get a token

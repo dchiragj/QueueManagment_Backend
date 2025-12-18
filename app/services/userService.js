@@ -576,19 +576,18 @@ async updateUserProfile(user_id, obj, file) {
     if (!user) throw new Error('User not exists');
 
     const { firstName, lastName, address, gender } = obj;
-    console.log(firstName,lastName,address,gender,"values");
     
     if (!firstName) throw new Error('First name is required');
     if (!lastName) throw new Error('Last name is required');
     if (!address) throw new Error('Address is required');
     if (!gender) throw new Error('Gender is required');
 
-    let profileImageUrl = user.ProfileUrl || null;
+    // let profileImageUrl = user.ProfileUrl || null;
     
-    if (file) {
-   profileImageUrl = `Uploads/${file.filename}`;
-      console.log('File uploaded, new ProfileUrl:', profileImageUrl);
-    }
+  //   if (file) {
+  //  profileImageUrl = `Uploads/${file.filename}`;
+  //     console.log('File uploaded, new ProfileUrl:', profileImageUrl);
+  //   }
 
     const updateObj = {
       firstName,
@@ -597,7 +596,7 @@ async updateUserProfile(user_id, obj, file) {
       gender,
       isOnboarding: false,
       updatedAt: new Date(),
-      ProfileUrl: profileImageUrl,
+      // ProfileUrl: profileImageUrl,
     };
 
     Object.keys(updateObj).forEach((key) => updateObj[key] === undefined && delete updateObj[key]);
@@ -612,10 +611,9 @@ async updateUserProfile(user_id, obj, file) {
     }
 
     const updatedUser = await this.getUser(user_id);
-    if (updatedUser.ProfileUrl) {
-      updatedUser.ProfileUrl = `http://localhost:8008/${updatedUser.ProfileUrl}`;
-    }
-    console.log('Updated user:', updatedUser);
+    // if (updatedUser.ProfileUrl) {
+    //   updatedUser.ProfileUrl = `http://localhost:8008/${updatedUser.ProfileUrl}`;
+    // }
     return updatedUser;
   } catch (err) {
     console.error('updateUserProfile error:', err.message, 'Stack:', err.stack);

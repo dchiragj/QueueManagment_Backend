@@ -362,5 +362,5 @@ const Queue = sequelize.define( 'Queue', {
 Queue.belongsTo( require( './user' ), { foreignKey: 'uid', as: 'user' } );
 Queue.belongsTo( require( './user' ), { foreignKey: 'merchant', as: 'merchantUser' } );
 Queue.belongsTo( require( './category' ), { foreignKey: 'category', as: 'categ' } );
-// Queue.hasMany(require('./token'), { foreignKey: 'queueId', as: 'tokens' });
+// Queue.belongsTo(require('./token'), { foreignKey: 'token', as: 'tokens' });
 module.exports = Queue;

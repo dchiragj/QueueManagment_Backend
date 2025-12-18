@@ -233,10 +233,10 @@ class QueueService extends RepositoryWithUserService {
         }
         const timestamp = Date.now();
         const baseName = `${item.name.replace(/\s+/g, '_')}_${timestamp}`;
-        const webJoinUrlOriginal = `${process.env.WEB_JOIN_URL}/${result.id}/${result.category}`;
+        const webJoinUrlOriginal = `${process.env.WEB_JOIN_DOMAIN}/joinQueue/${result.id}/${result.category}`;
         // ---- GENERATE EX-TYPE URL ----
         const encoded = Buffer.from(`${result.id}/${result.category}`).toString('base64');
-        const webJoinUrl = `${process.env.WEB_JOIN_URL}?token=${encoded}`;
+        const webJoinUrl = `${process.env.WEB_JOIN_DOMAIN}/joinQueue?token=${encoded}`;
         const webQrPath = path.join(qrDir, `${baseName}_web.png`);
         await QRCode.toFile(webQrPath, webJoinUrl);
 

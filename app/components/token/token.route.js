@@ -14,6 +14,7 @@ const { hashSync, genSaltSync } = require('bcryptjs');
 const Category = require('../../models/category');
 const twilio = require("twilio");
 const { Op } = require('sequelize');
+const sendEmailService = require('../../utils/sendemail');
 const { default: isEmail } = require('validator/lib/isEmail');
 
 const client = new twilio(
@@ -335,8 +336,8 @@ router.post('/generate-token-web', async (req, res) => {
     // Find or create user
     let user = await User.findOne({
       // where: isEmail ? { Email: identifier } : { mobileNumber: identifier }
-        where: { [isEmail ? 'Email' : 'MobileNumber']: identifier }
-    });  
+      where: { [isEmail ? 'Email' : 'MobileNumber']: identifier }
+    });
     const generatedEmail = `guest_${firstName.toLowerCase()}.${lastName.toLowerCase()}@queueapp.com`.replace(/\s+/g, '');
 
     if (!user) {
@@ -346,7 +347,7 @@ router.post('/generate-token-web', async (req, res) => {
       user = await User.create({
         firstName,
         lastName,
-        email:isEmail ? identifier : generatedEmail,
+        email: isEmail ? identifier : generatedEmail,
         NormalizedEmail: generatedEmail.toUpperCase(),
         password: hashedPassword,
         mobileNumber: isEmail ? null : identifier,
@@ -412,28 +413,43 @@ router.post('/generate-token-web', async (req, res) => {
     const today = new Date().toLocaleDateString('en-GB'); // e.g., 10/12/2025
 
     // Professional English SMS
-    const smsMessage = `Your Token is Ready! ✅
+    const emailHtml = `
+  <div>
+  <h2>Your Token is Ready ✅</h2>
+  <p><strong>For: ${queue.name}</strong></p>
+  <p>Token No: <b>${nextTokenNumber}</b></p>
+  <p>Date: ${today}</p>
+  <p>Time: ${startTime} - ${endTime}</p>
+  <p>
+    Track your token here:<br/>
+    <a href="${trackingLink}">trackingLink</a>
+  </p>
+  <p>Thank you 🙏</p>
+  </div>
+`;
 
-${queue.name}
-🔢 Token No: ${nextTokenNumber}
- Date: ${today}
-⏰ Time: ${startTime} - ${endTime}
-
-👀 Track live status:
-${trackingLink}
-
-Please arrive on time.
-
-Thank you! 🙏`;
 
     // Send SMS via Twilio
     try {
-      const message = await client.messages.create({
-        body: smsMessage,
-        to: `+91${mobile}`,
-        from: process.env.SMS_TWILIO_PHONE_NUMBER
-      });
-      console.log('SMS Sent ✅ SID:', message.sid);
+      if (isEmail) {
+        const sent = await sendEmailService.send(
+          identifier,
+          'Your Token is Ready!',
+          '',
+          emailHtml
+        );
+
+        if (!sent) {
+          throw new Error('Failed to send token email');
+        }
+      } else {
+        const message = await client.messages.create({
+          body: emailHtml,
+          to: `+91${identifier}`,
+          from: process.env.SMS_TWILIO_PHONE_NUMBER
+        });
+        console.log('SMS Sent ✅ SID:', message.sid);
+      }
     } catch (smsError) {
       console.error('SMS Failed:', smsError.message);
       // Don't block token generation if SMS fails

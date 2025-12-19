@@ -86,6 +86,7 @@ const router = require( './app/components/auth/auth.route' );
 app.use(cors());
 
 router.use('/uploads', express.static('uploads'));
+app.use(express.static(path.join(__dirname, './qrcodes')));
 
 // Initialize middlewares
 middlewares.init(app);

@@ -251,6 +251,18 @@ const Queue = sequelize.define( 'Queue', {
     allowNull: false,
     defaultValue: ''
   },
+  qrCode:{
+    type:DataTypes.STRING(200),
+    defaultValue:'',
+    allowNull:true
+
+  },
+    webBaseqrCode:{
+    type:DataTypes.STRING(200),
+    defaultValue:'',
+    allowNull:true
+
+  },
   isCancelled: {
     type: DataTypes.BOOLEAN,
     allowNull: true,

@@ -14,6 +14,7 @@ const { hashSync, genSaltSync } = require('bcryptjs');
 const Category = require('../../models/category');
 const twilio = require("twilio");
 const { Op } = require('sequelize');
+const { default: isEmail } = require('validator/lib/isEmail');
 
 const client = new twilio(
   process.env.SMS_TWILIO_ACCOUNT_SID,
@@ -309,22 +310,34 @@ router.post(
 
 router.post('/generate-token-web', async (req, res) => {
   try {
-    const { queueId, categoryId, firstName, lastName, mobile } = req.body;
+    const { queueId, categoryId, firstName, lastName, identifier } = req.body;
 
     // Validation
-    if (!queueId || !categoryId || !firstName || !lastName || !mobile) {
+    if (!queueId || !categoryId || !firstName || !lastName || !identifier) {
       return createError(res, { message: 'All fields are required' });
     }
 
     if (isNaN(categoryId)) {
       return createError(res, { message: 'Category ID must be a number' });
     }
-
-    // Generate guest email
-    const generatedEmail = `guest_${firstName.toLowerCase()}.${lastName.toLowerCase()}_${mobile}@queueapp.com`.replace(/\s+/g, '');
-
+    const isEmail = identifier.includes('@')
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(identifier)) {
+        return createError(res, { message: 'Please enter valid email address' });
+      }
+    } else {
+      const mobileRegex = /^[0-9]{10}$/;
+      if (!mobileRegex.test(identifier)) {
+        return createError(res, { message: 'Valid 10-digit mobile number required' });
+      }
+    }
     // Find or create user
-    let user = await User.findOne({ where: { mobileNumber: mobile } });
+    let user = await User.findOne({
+      // where: isEmail ? { Email: identifier } : { mobileNumber: identifier }
+        where: { [isEmail ? 'Email' : 'MobileNumber']: identifier }
+    });  
+    const generatedEmail = `guest_${firstName.toLowerCase()}.${lastName.toLowerCase()}@queueapp.com`.replace(/\s+/g, '');
 
     if (!user) {
       const randomPassword = require('crypto').randomBytes(8).toString('hex');
@@ -333,10 +346,10 @@ router.post('/generate-token-web', async (req, res) => {
       user = await User.create({
         firstName,
         lastName,
-        email: generatedEmail,
+        email:isEmail ? identifier : generatedEmail,
         NormalizedEmail: generatedEmail.toUpperCase(),
         password: hashedPassword,
-        mobileNumber: mobile,
+        mobileNumber: isEmail ? null : identifier,
         role: 'customer',
         isEmailVerified: false,
         isOnboarding: false,
@@ -489,7 +502,7 @@ router.get('/queue/:queueId/:categoryId', async (req, res) => {
         {
           model: User,                    // ← Add this
           as: 'user',                    // ← Match the alias you defined
-          attributes: ['businessName', 'businessAddress','mobileNumber'], // Only needed fields
+          attributes: ['businessName', 'businessAddress', 'mobileNumber'], // Only needed fields
           required: true,                 // Queue must have an owner
         },
       ],
@@ -519,7 +532,7 @@ router.get('/queue/:queueId/:categoryId', async (req, res) => {
       // Add business details
       businessName: queue.user?.businessName || null,
       businessAddress: queue.user?.businessAddress || null,
-      mobileNumber:queue.user.mobileNumber || null
+      mobileNumber: queue.user.mobileNumber || null
 
     });
   } catch (error) {

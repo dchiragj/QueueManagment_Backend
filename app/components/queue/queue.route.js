@@ -249,18 +249,25 @@ router.get('/:queueId/history', async (req, res) => {
   try {
     const { queueId } = req.params;
     const { mobile } = req.query;
-
-    console.log('History check:', { queueId, mobile });
     if (!queueId || isNaN(queueId)) {
       return createError(res, { message: 'Invalid queue ID' });
     }
-    if (!mobile || mobile.replace(/\D/g, '').length < 10) {
-      return createError(res, { message: 'Valid 10-digit mobile number required' });
+
+    const isEmail = mobile.includes('@')
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(mobile)) {
+        return createError(res, { message: 'Please enter valid email address' });
+      }
+    } else {
+      const mobileRegex = /^[0-9]{10}$/;
+      if (!mobileRegex.test(mobile)) {
+        return createError(res, { message: 'Valid 10-digit mobile number required' });
+      }
     }
-    const cleanMobile = mobile.replace(/\D/g, '').slice(-10);
-    // Find user by mobile
     const user = await User.findOne({
-      where: { mobileNumber: cleanMobile }
+      where: { [isEmail ? 'Email' : 'MobileNumber']: mobile }
+
     });
     if (!user) {
       return createResponse(res, 'ok', 'No user found', { hasToken: false });
@@ -276,7 +283,7 @@ router.get('/:queueId/history', async (req, res) => {
         {
           model: User,
           as: 'customer',
-          where: { mobileNumber: cleanMobile },
+          // where: { mobileNumber: mobile },
           attributes: ['id', 'firstName', 'lastName', 'mobileNumber'],
           required: true
         }

@@ -223,6 +223,10 @@ class QueueService extends RepositoryWithUserService {
           });
           const qrPath = path.join(qrDir, `${uniqueQrCodeName}.png`);
           await QRCode.toFile(qrPath, qrData);
+          await Queue.update(
+            { qrCode: `${uniqueQrCodeName}.png` },
+            { where: { id: item.id } }
+          );
 
           attachments.push({
             filename: `${uniqueQrCodeName}.png`,
@@ -239,6 +243,10 @@ class QueueService extends RepositoryWithUserService {
         const webJoinUrl = `${process.env.WEB_JOIN_DOMAIN}/joinQueue?token=${encoded}`;
         const webQrPath = path.join(qrDir, `${baseName}_web.png`);
         await QRCode.toFile(webQrPath, webJoinUrl);
+        await Queue.update(
+          { webBaseqrCode: `${baseName}_web.png` },
+          { where: { id: item.id } }
+        );
 
         attachments.push({
           filename: `QR_Web_Anyone_Can_Scan_${item.name}.png`,

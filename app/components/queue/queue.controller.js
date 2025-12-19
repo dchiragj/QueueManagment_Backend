@@ -8,6 +8,8 @@ const queue = require( '../../models/queue' );
 const Queue = require( '../../models/queue' );
 const moment = require('moment');
 const Desk = require( '../../models/desk' );
+const Token = require('../../models/token');
+const User = require('../../models/user');
 
 class QueueController {
   /**
@@ -200,17 +202,40 @@ async getDesksByCategory(req, res) {
   /**
    * @description get item details
    */
-  async getDetails(req, res) {
+  // async getDetails(req, res) {
+  //   try {
+  //     const { user } = req;
+  //     const { id } = req.params;
+  //     const item = await service.getSingleQueue(user.id, id);
+  //     if (item) return createResponse(res, 'ok', 'Queue', item);
+  //     else return createError(res, { message: 'Queue Item not found' });
+  //   } catch (e) {
+  //     return createError(res, e);
+  //   }
+  // }
+
+
+async getDetails(req, res) {
     try {
       const { user } = req;
       const { id } = req.params;
-      const item = await service.getSingleQueue(user.id, id);
-      if (item) return createResponse(res, 'ok', 'Queue', item);
+      const queue = await service.getSingleQueue(user.id, id);
+      // if (item) return createResponse(res, 'ok', 'Queue', item);
+      if (queue) {
+        const tokens = await Token.findAll({ 
+          where: { queueId: queue.id } ,
+          attributes:['id','customerId','tokenNumber','status'],
+          include: [{ model: User, attributes: ['firstName','lastName'], as: 'customer' }] 
+        })
+        return createResponse(res, 'ok', 'Queue', { queue, tokens: tokens?.length ? tokens : [] });
+      }
+
       else return createError(res, { message: 'Queue Item not found' });
     } catch (e) {
       return createError(res, e);
     }
   }
+
 
 
   async cancelQueue (req, res) {

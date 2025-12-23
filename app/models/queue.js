@@ -163,11 +163,11 @@
 // };
 // module.exports = mongoose.model('queue', queueSchema);
 // models/queue.js
-const { DataTypes } = require( 'sequelize' );
-const sequelize = require( '../config/database' );
-const moment = require( 'moment' );
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+const moment = require('moment');
 
-const Queue = sequelize.define( 'Queue', {
+const Queue = sequelize.define('Queue', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -186,7 +186,7 @@ const Queue = sequelize.define( 'Queue', {
     allowNull: false,
   },
   name: {
-    type: DataTypes.STRING( 255 ),
+    type: DataTypes.STRING(255),
     allowNull: false,
   },
   description: {
@@ -213,6 +213,11 @@ const Queue = sequelize.define( 'Queue', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  isDayQueue: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false
+  },
   status: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -228,7 +233,7 @@ const Queue = sequelize.define( 'Queue', {
     type: DataTypes.FLOAT
   },
   address: {
-    type: DataTypes.STRING( 255 ),
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   latitude: {
@@ -242,25 +247,25 @@ const Queue = sequelize.define( 'Queue', {
     defaultValue: 0
   },
   joinCode: {
-    type: DataTypes.STRING( 6 ),
+    type: DataTypes.STRING(6),
     unique: true,
     allowNull: true,
   },
   joinMethods: {
-    type: DataTypes.STRING( 10 ),
+    type: DataTypes.STRING(10),
     allowNull: false,
     defaultValue: ''
   },
-  qrCode:{
-    type:DataTypes.STRING(200),
-    defaultValue:'',
-    allowNull:true
+  qrCode: {
+    type: DataTypes.STRING(200),
+    defaultValue: '',
+    allowNull: true
 
   },
-    webBaseqrCode:{
-    type:DataTypes.STRING(200),
-    defaultValue:'',
-    allowNull:true
+  webBaseqrCode: {
+    type: DataTypes.STRING(200),
+    defaultValue: '',
+    allowNull: true
 
   },
   isCancelled: {
@@ -280,7 +285,7 @@ const Queue = sequelize.define( 'Queue', {
     allowNull: true,
   },
   cancelled_comment: {
-    type: DataTypes.STRING( 255 ),
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   merchant: {
@@ -312,7 +317,7 @@ const Queue = sequelize.define( 'Queue', {
     },
   },
   deletedBy: {
-    type: DataTypes.STRING( 255 ),
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   deletedAt: {
@@ -334,45 +339,45 @@ const Queue = sequelize.define( 'Queue', {
   timestamps: true,
   paranoid: true,
   hooks: {
-    beforeCreate: async ( queue ) => {
-      console.log( queue, "paylo" );
+    beforeCreate: async (queue) => {
+      console.log(queue, "paylo");
 
       // Generate unique 6-digit joinCode
       let joinCode;
       let isUnique = false;
-      while ( !isUnique ) {
-        joinCode = Math.floor( 100000 + Math.random() * 900000 ).toString();
-        const existingQueue = await Queue.findOne( { where: { joinCode } } );
-        if ( !existingQueue ) isUnique = true;
+      while (!isUnique) {
+        joinCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const existingQueue = await Queue.findOne({ where: { joinCode } });
+        if (!existingQueue) isUnique = true;
       }
       queue.joinCode = joinCode;
       // Ensure start_date and end_date are valid Date objects
-      if ( queue.dataValues.start_date && !( queue.dataValues.start_date instanceof Date ) ) {
-        queue.dataValues.start_date = moment( queue.dataValues.start_date ).toDate();
+      if (queue.dataValues.start_date && !(queue.dataValues.start_date instanceof Date)) {
+        queue.dataValues.start_date = moment(queue.dataValues.start_date).toDate();
       }
-      if ( queue.dataValues.end_date && !( queue.dataValues.end_date instanceof Date ) ) {
-        queue.dataValues.end_date = moment( queue.dataValues.end_date ).toDate();
+      if (queue.dataValues.end_date && !(queue.dataValues.end_date instanceof Date)) {
+        queue.dataValues.end_date = moment(queue.dataValues.end_date).toDate();
       }
 
       queue.createdAt = moment().utc().toDate();
       queue.updatedAt = moment().utc().toDate();
 
     },
-    beforeUpdate: ( queue ) => {
-      if ( queue.start_date && !( queue.start_date instanceof Date ) ) {
-        queue.start_date = moment( queue.start_date ).toDate();
+    beforeUpdate: (queue) => {
+      if (queue.start_date && !(queue.start_date instanceof Date)) {
+        queue.start_date = moment(queue.start_date).toDate();
       }
-      if ( queue.end_date && !( queue.end_date instanceof Date ) ) {
-        queue.end_date = moment( queue.end_date ).toDate();
+      if (queue.end_date && !(queue.end_date instanceof Date)) {
+        queue.end_date = moment(queue.end_date).toDate();
       }
       queue.updatedAt = moment().utc().toDate();
     },
   },
-} );
+});
 
 // Associations
-Queue.belongsTo( require( './user' ), { foreignKey: 'uid', as: 'user' } );
-Queue.belongsTo( require( './user' ), { foreignKey: 'merchant', as: 'merchantUser' } );
-Queue.belongsTo( require( './category' ), { foreignKey: 'category', as: 'categ' } );
+Queue.belongsTo(require('./user'), { foreignKey: 'uid', as: 'user' });
+Queue.belongsTo(require('./user'), { foreignKey: 'merchant', as: 'merchantUser' });
+Queue.belongsTo(require('./category'), { foreignKey: 'category', as: 'categ' });
 // Queue.belongsTo(require('./token'), { foreignKey: 'token', as: 'tokens' });
 module.exports = Queue;

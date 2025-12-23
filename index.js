@@ -83,6 +83,7 @@ const app = express();
 const server = http.Server(app);
 const cors = require('cors');
 const router = require( './app/components/auth/auth.route' );
+const StartJOBCron = require('./cron');
 app.use(cors());
 
 router.use('/uploads', express.static('uploads'));
@@ -117,12 +118,14 @@ sequelize
   .then(() => {
     server.listen(env.PORT, () => {
       console.log(
-        '%s App is running at http://192.168.2.11:%d in %s mode',
-        chalk.green('✓'),
-        env.PORT,
-        env.NODE_ENV
+        // '%s App is running at http://192.168.2.11:%d in %s mode',
+        `${ chalk.green('✓')} App is running at http://localhost:${env.PORT} in ${env.NODE_ENV} mode`,
+        // chalk.green('✓'),
+        // env.PORT,
+        // env.NODE_ENV
       );
       console.log('  Press CTRL-C to stop\n');
+      StartJOBCron();
     });
   })
   .catch((e) => {

@@ -253,7 +253,6 @@ exports.userFriendlyString = (value, replaceChar) => {
 exports.getNextNumber = (key = '', type = 1) => {
   try {
     // type: 1: numbers; 2: alphabets
-    console.log('key', key);
     if (!key) {
       // ascii value for before number & character. i.e next will be 1 or A
       key = type === 1 ? '0' : '@';
@@ -296,7 +295,6 @@ exports.getNextNumber = (key = '', type = 1) => {
       // }
 
       const thirdToken = tokens[0];
-      console.log(thirdToken, "thirdtoken123");
       const user = thirdToken.customer;
 
       if (!user?.fcmToken) {
@@ -322,8 +320,10 @@ exports.getNextNumber = (key = '', type = 1) => {
           },
         },
       };
+const response = await admin.messaging().send(message);
+      console.log(response,"response fcm");
 
-      await admin.messaging().send(message);
+      // await admin.messaging().send(message);
       return {
         success: true,
         notifiedToken: thirdToken.tokenNumber,

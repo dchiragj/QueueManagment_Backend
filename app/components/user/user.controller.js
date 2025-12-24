@@ -24,7 +24,7 @@ class UserController {
   async updateUser(req, res) {
     try {
       if (req.user) {
-        const result = await UserService.updateUserProfile(req.user.id, req.body,req.file);
+        const result = await UserService.updateUserProfile(req.user.id, req.body,req);
         if (result) {
           createResponse(res, 'ok', 'User profile updated successfully', result);
         } else {

@@ -39,16 +39,13 @@ router.post(
     PassportErrorHandler.error,
   ],
   // upload.single('ProfileUrl'), 
-  // (req, res, next) => {
-  //   console.log(req.body, "url_file1");
-    
-  //   if (req.fileValidationError) {
-  //     console.error('Multer error:', req.fileValidationError.message);
-  //     return res.status(400).json({ message: req.fileValidationError.message });
-  //   }
-  //   console.log('Request body:', req.body, 'File:', req.file); // Debug
-  //   next();
-  // },
+  (req, res, next) => {
+    if (req.fileValidationError) {
+      console.error('Multer error:', req.fileValidationError.message);
+      return res.status(400).json({ message: req.fileValidationError.message });
+    }
+    next();
+  },
   UserValidations.updateProfile,
   (req, res) => {
     UserController.updateUser(req, res);

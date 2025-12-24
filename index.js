@@ -84,9 +84,18 @@ const server = http.Server(app);
 const cors = require('cors');
 const router = require( './app/components/auth/auth.route' );
 const StartJOBCron = require('./cron');
+const bodyParser = require('body-parser');
 app.use(cors());
 
-router.use('/uploads', express.static('uploads'));
+// router.use('/uploads', express.static('uploads'));
+// const path = require('path');
+
+app.use('/uploads', express.static(path.join(process.cwd(), './uploads')));
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+
 app.use(express.static(path.join(__dirname, './qrcodes')));
 
 // Initialize middlewares

@@ -7,6 +7,8 @@ const { ADMIN_EMAIL, SMTP_USERNAME } = require('../config/env');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const sequelize = require( '../config/database' );
+const path = require('path');
+const fs = require('fs');
 
 const get6DigCode = () => {
   return Math.floor(100000 + Math.random() * 900000);
@@ -121,7 +123,6 @@ async sendVerificationCode(user) {
       subject: 'Activate your Queue account',
       text: `Hi ${user.firstName} ${user.lastName},\nYour activation code is: ${activationCode}`,
     };
-console.log(clientMsg,"clientMsg");
 
     // Send mail
     sendEmail(clientMsg);
@@ -569,9 +570,9 @@ async verifyEmailCode(user_id, code) {
   //   }
   // }
 
-async updateUserProfile(user_id, obj, file) {
+async updateUserProfile(user_id, obj, req) {
   try {
-    console.log('updateUserProfile input:', { user_id, obj, file });
+    // console.log('updateUserProfile input:', { user_id, obj, file });
     const user = await this.getUser(user_id);
     if (!user) throw new Error('User not exists');
 
@@ -582,12 +583,21 @@ async updateUserProfile(user_id, obj, file) {
     if (!address) throw new Error('Address is required');
     if (!gender) throw new Error('Gender is required');
 
-    // let profileImageUrl = user.ProfileUrl || null;
+   const file = req.files?.ProfileUrl;
+      let profileImageUrl = null;
     
-  //   if (file) {
-  //  profileImageUrl = `Uploads/${file.filename}`;
-  //     console.log('File uploaded, new ProfileUrl:', profileImageUrl);
-  //   }
+  if (file) {
+      const uploadDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const fileName = `${Date.now()}-${file.name}`;
+      const uploadPath = path.join(uploadDir, fileName);
+
+      await file.mv(uploadPath);
+      profileImageUrl = `uploads/${fileName}`;
+    }
 
     const updateObj = {
       firstName,
@@ -596,7 +606,7 @@ async updateUserProfile(user_id, obj, file) {
       gender,
       isOnboarding: false,
       updatedAt: new Date(),
-      // ProfileUrl: profileImageUrl,
+      ProfileUrl: profileImageUrl,
     };
 
     Object.keys(updateObj).forEach((key) => updateObj[key] === undefined && delete updateObj[key]);
@@ -611,9 +621,9 @@ async updateUserProfile(user_id, obj, file) {
     }
 
     const updatedUser = await this.getUser(user_id);
-    // if (updatedUser.ProfileUrl) {
-    //   updatedUser.ProfileUrl = `http://localhost:8008/${updatedUser.ProfileUrl}`;
-    // }
+    if (updatedUser.ProfileUrl) {
+      updatedUser.ProfileUrl = updatedUser.ProfileUrl;
+    }
     return updatedUser;
   } catch (err) {
     console.error('updateUserProfile error:', err.message, 'Stack:', err.stack);

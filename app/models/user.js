@@ -141,7 +141,7 @@ User.prototype.createToken = function () {
 User.prototype.toAuthJSON = function () {
   // console.log(profileUrl,"profileUrl-profileUrl");
   const profileUrl = this.ProfileUrl
-    ? `${BASE_URL}/uploads/${this.ProfileUrl}`
+    ? this.ProfileUrl
     : null;
   return {
     id: this.id,

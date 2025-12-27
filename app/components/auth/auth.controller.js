@@ -1,5 +1,8 @@
 const { createResponse, createError } = require('./../../utils/helpers');
 const UserService = require('../../services/userService');
+const env = require('../../config/env');
+const sendEmailObj = require('../../utils/sendemail');
+const ContactUs = require('../../models/contactUs');
 
 class AuthController {
   /**
@@ -130,6 +133,43 @@ async forgotPassword(req, res) {
   }
 }
 
+async ContactUsUser(req, res) {
+    try {
+      const { firstName, lastName, email, phoneNumber ,message } = req.body;
+
+      // Save in DB
+      await ContactUs.create({
+        firstName,
+        lastName,
+        email,
+        phoneNumber,
+        message 
+      });
+
+      // Email Content
+      const subject = "New Contact Us Request";
+      const html = `
+        <h3>Contact Us Request</h3>
+        <p><b>Name:</b> ${firstName} ${lastName}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Phone:</b> ${phoneNumber}</p>
+        <p><b>message :</b> ${message }</p>
+      `;
+
+      await sendEmailObj.send(
+       process.env.CONTACTUS_EMAIl, // 👈 Admin Email
+        subject,
+        "",
+        html
+      );
+
+      return createResponse(res, "ok", "Contact details submitted successfully");
+
+    } catch (e) {
+      console.log(e);
+      return createError(res, e);
+    }
+  }
 }
 
 const authController = new AuthController();

@@ -114,6 +114,22 @@ class AuthenticationValidator {
     next();
   }
 }
+
+
+  createUserContact(req, res, next) {
+    const errors = {};
+    const { firstName, lastName, email, phoneNumber } = req.body;
+
+    if (isEmpty(firstName)) errors.firstName = "First Name is required";
+    if (isEmpty(lastName)) errors.lastName = "Last Name is required";
+    if (isEmpty(email)) errors.email = "Email is required";
+    if (isEmpty(phoneNumber)) errors.phoneNumber = "Phone Number is required";
+
+    if (Object.keys(errors).length > 0) {
+      createValidationResponse(res, errors);
+    } else next();
+  }
+
 }
 
 const validationObj = new AuthenticationValidator();

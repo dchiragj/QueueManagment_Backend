@@ -128,4 +128,10 @@ router.post('/save-fcm-token',[
     res.status(500).json({ error: err.message });
   }
 });
+// contactus route
+router.post(
+  "/contact-us",
+  AuthValidations.createUserContact,
+  (req, res) => AuthController.ContactUsUser(req, res)
+);
 module.exports = router;

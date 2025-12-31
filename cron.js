@@ -4,8 +4,8 @@ const Token = require('./app/models/token');
 
 
 // Daily at 12:00 AM (midnight) cleanup job
-
 const queueClenup = async () => {
+
     console.log('🧹 Starting daily queue cleanup at midnight...');
     try {
         const dayEndQueues = await Queue.findAll({
@@ -48,7 +48,9 @@ const queueClenup = async () => {
 }
 
 const queueClenupJob = () => {
+        console.log("📌 cron.js loaded");
     cron.schedule('0 0 0 * * *', async () => {
+        console.log("🧹 Running scheduled queue cleanup job at midnight...");
         try {
             await queueClenup();
             console.log("✅ Queue clenup job successfully processed.");

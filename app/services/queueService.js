@@ -326,6 +326,7 @@ class QueueService extends RepositoryWithUserService {
   async getByFilter(category, merchantId, start_date, end_date, coordinates) {
     try {
       const query = {};
+
       if (category) query.category = category;
       if (merchantId) query.merchant = merchantId;
       // Filter by date range
@@ -333,7 +334,10 @@ class QueueService extends RepositoryWithUserService {
         query.start_date = { [Op.lte]: new Date(end_date) };
         query.end_date = { [Op.gte]: new Date(start_date) };
       }
+      // query.status = 2 
+      query.isCancelled = 0
       const result = await Queue.findAll({ where: query });
+
       return result.map((item) => item.toJSON());
     } catch (e) {
       throw e;

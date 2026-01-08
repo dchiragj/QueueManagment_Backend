@@ -8,29 +8,29 @@ class AuthController {
   /**
    * @description Sign in with email and password
    */
-async signIn(req, res) {
-  try {
+  async signIn(req, res) {
+    try {
 
-    const { username, password } = req.body;
-  
-    const user = await UserService.validateUserCredential(username, password);
-    
-    if (user) {
-      createResponse(res, 'ok', 'Login successful', user);
-    } else {
-      createError(res, {}, { message: 'Invalid Credentials' });
+      const { username, password } = req.body;
+
+      const user = await UserService.validateUserCredential(username, password);
+
+      if (user) {
+        createResponse(res, 'ok', 'Login successful', user);
+      } else {
+        createError(res, {}, { message: 'Invalid Credentials' });
+      }
+    } catch (e) {
+      createError(res, e);
     }
-  } catch (e) {
-    createError(res, e);
   }
-}
 
   /**
    * @description signup new user
    */
-  async  signUp(req, res) {
+  async signUp(req, res) {
     try {
-      const user = await UserService.addNewUser(req.body); 
+      const user = await UserService.addNewUser(req.body);
       if (user) {
         // await UserService.sendVerificationCode(user);
         createResponse(res, 'ok', 'Signup successful', user);
@@ -45,7 +45,7 @@ async signIn(req, res) {
   /**
    * @description forgot password
    */
-async forgotPassword(req, res) {
+  async forgotPassword(req, res) {
     try {
       const { email } = req.body;
       const result = await UserService.forgotPassword(email);
@@ -81,7 +81,7 @@ async forgotPassword(req, res) {
 
   async resetPassword(req, res) {
     try {
-      const { email, password,otp } = req.body;
+      const { email, password, otp } = req.body;
       if (!email || !password || !otp) {
         return createError(res, {}, { message: 'email , password and otp are required' });
       }
@@ -112,30 +112,30 @@ async forgotPassword(req, res) {
   }
 
   async verifyEmailCode(req, res) {
-  try {
-    const user = req.user; // JWT payload
-    const { code } = req.body;
-    if (!code) {
-      return createError(res, { message: "Code is required" });
-    }
-
-    const result = await UserService.verifyEmailCode(user.id, code);
-
-    if (result) {
-      return createResponse(res, "ok", "Verified successfully.");
-    }
-
-    return createError(res, {
-      message: "Verification failed, please re-enter or request another code",
-    });
-  } catch (e) {
-    return createError(res, e);
-  }
-}
-
-async ContactUsUser(req, res) {
     try {
-      const { firstName, lastName, email, phoneNumber ,message } = req.body;
+      const user = req.user; // JWT payload
+      const { code } = req.body;
+      if (!code) {
+        return createError(res, { message: "Code is required" });
+      }
+
+      const result = await UserService.verifyEmailCode(user.id, code);
+
+      if (result) {
+        return createResponse(res, "ok", "Verified successfully.");
+      }
+
+      return createError(res, {
+        message: "Verification failed, please re-enter or request another code",
+      });
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
+
+  async ContactUsUser(req, res) {
+    try {
+      const { firstName, lastName, email, phoneNumber, message } = req.body;
 
       // Save in DB
       await ContactUs.create({
@@ -143,7 +143,7 @@ async ContactUsUser(req, res) {
         lastName,
         email,
         phoneNumber,
-        message 
+        message
       });
 
       // Email Content
@@ -153,11 +153,11 @@ async ContactUsUser(req, res) {
         <p><b>Name:</b> ${firstName} ${lastName}</p>
         <p><b>Email:</b> ${email}</p>
         <p><b>Phone:</b> ${phoneNumber}</p>
-        <p><b>message :</b> ${message }</p>
+        <p><b>message :</b> ${message}</p>
       `;
 
       await sendEmailObj.send(
-       process.env.CONTACTUS_EMAIl, // 👈 Admin Email
+        process.env.CONTACTUS_EMAIl, // 👈 Admin Email
         subject,
         "",
         html

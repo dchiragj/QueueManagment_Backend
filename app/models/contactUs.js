@@ -13,7 +13,7 @@ const ContactUs = sequelize.define('ContactUs', {
   lastName: { type: DataTypes.STRING, allowNull: false },
   email: { type: DataTypes.STRING, allowNull: false },
   phoneNumber: { type: DataTypes.STRING, allowNull: false },
-  message : { type: DataTypes.STRING, allowNull: false },
+  message: { type: DataTypes.STRING, allowNull: false },
 
 }, {
   tableName: 'ContactUs',

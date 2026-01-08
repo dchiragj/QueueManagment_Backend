@@ -4,19 +4,21 @@ const categoryService = require('./../../services/categoryService');
 const deskService = require('./../../services/deskService');
 const service = require('./../../services/queueService');
 const { PS_TYPES, USER_ROLE_TYPES } = require('../../config/constants');
-const queue = require( '../../models/queue' );
-const Queue = require( '../../models/queue' );
+const queue = require('../../models/queue');
+const Queue = require('../../models/queue');
 const moment = require('moment');
-const Desk = require( '../../models/desk' );
+const Desk = require('../../models/desk');
 const Token = require('../../models/token');
 const User = require('../../models/user');
+const Business = require('../../models/business');
+const LandingContact = require('../../models/landingContact');
 
 class QueueController {
   /**
    * @description get queue list
    */
   async getQueueList(req, res) {
-    
+
     try {
       const { user } = req;
       const { category, merchantId, start_date, end_date, coordinates } = req.query;
@@ -106,32 +108,32 @@ class QueueController {
       return createError(res, e);
     }
   }
-/**
- * @description Get desks by categoryId
- */
-async getDesksByCategory(req, res) {
-  try {
-    const { categoryId } = req.params;
+  /**
+   * @description Get desks by categoryId
+   */
+  async getDesksByCategory(req, res) {
+    try {
+      const { categoryId } = req.params;
 
-    // ← desks is an ARRAY
-    const desks = await deskService.getByCategory(categoryId);
+      // ← desks is an ARRAY
+      const desks = await deskService.getByCategory(categoryId);
 
-    // ← Check if we got data
-    if (desks && desks.length > 0) {
-      const list = desks.map(d => ({
-        key: d.id,
-        value: d.name,
-      }));
-      return createResponse(res, 'ok', 'Desks', list);
+      // ← Check if we got data
+      if (desks && desks.length > 0) {
+        const list = desks.map(d => ({
+          key: d.id,
+          value: d.name,
+        }));
+        return createResponse(res, 'ok', 'Desks', list);
+      }
+
+      // ← No desks found
+      return createError(res, { message: 'No desks found for this category' });
+    } catch (e) {
+      console.error('getDesksByCategory error:', e);
+      return createError(res, e);
     }
-
-    // ← No desks found
-    return createError(res, { message: 'No desks found for this category' });
-  } catch (e) {
-    console.error('getDesksByCategory error:', e);
-    return createError(res, e);
   }
-}
   /**
    * @description create problems/solutions based on type add bulk items
    */
@@ -215,17 +217,17 @@ async getDesksByCategory(req, res) {
   // }
 
 
-async getDetails(req, res) {
+  async getDetails(req, res) {
     try {
       const { user } = req;
       const { id } = req.params;
       const queue = await service.getSingleQueue(user.id, id);
       // if (item) return createResponse(res, 'ok', 'Queue', item);
       if (queue) {
-        const tokens = await Token.findAll({ 
-          where: { queueId: queue.id } ,
-          attributes:['id','customerId','tokenNumber','status'],
-          include: [{ model: User, attributes: ['firstName','lastName'], as: 'customer' }] 
+        const tokens = await Token.findAll({
+          where: { queueId: queue.id },
+          attributes: ['id', 'customerId', 'tokenNumber', 'status'],
+          include: [{ model: User, attributes: ['firstName', 'lastName'], as: 'customer' }]
         })
         return createResponse(res, 'ok', 'Queue', { queue, tokens: tokens?.length ? tokens : [] });
       }
@@ -238,42 +240,42 @@ async getDetails(req, res) {
 
 
 
-  async cancelQueue (req, res) {
-  try {
-    const { id } = req.params;
-    const { cancelled_comment } = req.body;
-    const userId = req.user.id; // Assuming req.user contains the authenticated user's data from passport
+  async cancelQueue(req, res) {
+    try {
+      const { id } = req.params;
+      const { cancelled_comment } = req.body;
+      const userId = req.user.id; // Assuming req.user contains the authenticated user's data from passport
 
-    // Find the queue
-    const queue = await Queue.findByPk(id);
-    if (!queue) {
-      return res.status(404).json({ message: 'Queue not found' });
+      // Find the queue
+      const queue = await Queue.findByPk(id);
+      if (!queue) {
+        return res.status(404).json({ message: 'Queue not found' });
+      }
+
+      // Check if queue is already canceled
+      if (queue.isCancelled) {
+        return res.status(400).json({ message: 'Queue is already canceled' });
+      }
+
+      // Current date and time in UTC (e.g., 2025-10-09 10:21:00 UTC from your example, adjusted to current time)
+      const currentUtcTime = moment().utc().toDate();
+
+      // Update cancellation fields to match the example
+      await queue.update({
+        isCancelled: true,
+        cancelledBy: userId,
+        cancelled_date: currentUtcTime,
+        cancelled_comment: cancelled_comment || null,
+        status: 2, // Assuming 2 represents "CANCELED" (adjust based on your status mapping)
+        deletedAt: currentUtcTime, // For soft delete (paranoid: true)
+      });
+
+      return res.status(200).json({ message: 'Queue canceled successfully' });
+    } catch (error) {
+      console.error('Error canceling queue:', error);
+      return res.status(500).json({ message: 'Server error' });
     }
-
-    // Check if queue is already canceled
-    if (queue.isCancelled) {
-      return res.status(400).json({ message: 'Queue is already canceled' });
-    }
-
-    // Current date and time in UTC (e.g., 2025-10-09 10:21:00 UTC from your example, adjusted to current time)
-    const currentUtcTime = moment().utc().toDate();
-
-    // Update cancellation fields to match the example
-    await queue.update({
-      isCancelled: true,
-      cancelledBy: userId,
-      cancelled_date: currentUtcTime,
-      cancelled_comment: cancelled_comment || null,
-      status: 2, // Assuming 2 represents "CANCELED" (adjust based on your status mapping)
-      deletedAt: currentUtcTime, // For soft delete (paranoid: true)
-    });
-
-    return res.status(200).json({ message: 'Queue canceled successfully' });
-  } catch (error) {
-    console.error('Error canceling queue:', error);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
+  };
 
   /**
    * @description Sign in with email and password
@@ -293,71 +295,134 @@ async getDetails(req, res) {
   }
 
   // ✅ Guest join a queue
-       // for tracking link
-async guestJoin (req, res)  {
-  try {
-    const queueId = req.params.id;
+  // for tracking link
+  async guestJoin(req, res) {
+    try {
+      const queueId = req.params.id;
 
-    // 1. Validate queue
-    const queue = await queue.findById(queueId);
-    if (!queue) {
-      return res.status(404).json({ success: false, message: "Queue not found" });
-    }
-    if (queue.status !== "active") {
-      return res.status(400).json({ success: false, message: "Queue not active" });
-    }
-
-    // 2. Increment last_token_number
-    queue.last_token_number = (queue.last_token_number || 0) + 1;
-    await queue.save();
-
-    // 3. Create new Token (Queue Slot)
-    const trackingToken = shortid.generate(); // e.g., abc123
-    const newToken = await Token.create({
-      queue_id: queueId,
-      token_no: queue.last_token_number,
-      status: "waiting",
-      join_type: "guest",
-      tracking_token: trackingToken
-    });
-
-    // 4. Compute current_serving (smallest active called token or last done +1)
-    const servingToken = await Token.findOne({
-      queue_id: queueId,
-      status: "called"
-    }).sort({ token_no: 1 });
-
-    const current_serving = servingToken ? servingToken.token_no : 1;
-
-    // 5. Compute people_ahead (waiting tokens before mine)
-    const people_ahead = await Token.countDocuments({
-      queue_id: queueId,
-      status: "waiting",
-      token_no: { $lt: newToken.token_no }
-    });
-
-    // 6. ETA (basic formula: people_ahead * avg_service_time)
-    const avgServiceTime = queue.avg_service_time || 5; // minutes (default)
-    const eta = people_ahead * avgServiceTime + " minutes";
-
-    // 7. Response
-    return res.json({
-      success: true,
-      data: {
-        token_no: newToken.token_no,
-        queue_id: queueId,
-        tracking_link: `/track/${queueId}/${trackingToken}`,
-        current_serving,
-        people_ahead,
-        eta
+      // 1. Validate queue
+      const queue = await queue.findById(queueId);
+      if (!queue) {
+        return res.status(404).json({ success: false, message: "Queue not found" });
       }
-    });
+      if (queue.status !== "active") {
+        return res.status(400).json({ success: false, message: "Queue not active" });
+      }
 
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: err.message });
+      // 2. Increment last_token_number
+      queue.last_token_number = (queue.last_token_number || 0) + 1;
+      await queue.save();
+
+      // 3. Create new Token (Queue Slot)
+      const trackingToken = shortid.generate(); // e.g., abc123
+      const newToken = await Token.create({
+        queue_id: queueId,
+        token_no: queue.last_token_number,
+        status: "waiting",
+        join_type: "guest",
+        tracking_token: trackingToken
+      });
+
+      // 4. Compute current_serving (smallest active called token or last done +1)
+      const servingToken = await Token.findOne({
+        queue_id: queueId,
+        status: "called"
+      }).sort({ token_no: 1 });
+
+      const current_serving = servingToken ? servingToken.token_no : 1;
+
+      // 5. Compute people_ahead (waiting tokens before mine)
+      const people_ahead = await Token.countDocuments({
+        queue_id: queueId,
+        status: "waiting",
+        token_no: { $lt: newToken.token_no }
+      });
+
+      // 6. ETA (basic formula: people_ahead * avg_service_time)
+      const avgServiceTime = queue.avg_service_time || 5; // minutes (default)
+      const eta = people_ahead * avgServiceTime + " minutes";
+
+      // 7. Response
+      return res.json({
+        success: true,
+        data: {
+          token_no: newToken.token_no,
+          queue_id: queueId,
+          tracking_link: `/track/${queueId}/${trackingToken}`,
+          current_serving,
+          people_ahead,
+          eta
+        }
+      });
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  };
+
+  async getMyBusinesses(req, res) {
+    try {
+      const userId = req.user.id;
+
+      console.log(userId, "userId");
+
+
+      const list = await Business.findAll({
+        where: { uid: userId },
+        order: [['createdAt', 'DESC']]
+      });
+
+      return createResponse(res, 'ok', 'Business List', list);
+
+    } catch (err) {
+      return createError(res, err);
+    }
   }
-};
+
+  // ⭐ CREATE Business
+  async createBusiness(req, res) {
+    try {
+      const user = req.user;
+
+      if (!(user.role === USER_ROLE_TYPES.MERCHANT || user.role === USER_ROLE_TYPES.BOTH)) {
+        return createError(res, { message: 'Only merchant can create business' });
+      }
+
+      const payload = {
+        ...req.body,
+        uid: user.id
+      };
+
+      const business = await Business.create(payload);
+
+      return createResponse(res, 'ok', 'Business created', business);
+
+    } catch (err) {
+      return createError(res, err);
+    }
+  }
+
+  /**
+   * @description submit contact form
+   */
+  async submitContact(req, res) {
+    try {
+      const { firstName, lastName, email, subject, message } = req.body;
+      const contact = await LandingContact.create({
+        firstName,
+        lastName,
+        email,
+        subject,
+        message
+      });
+
+      if (contact) return createResponse(res, 'ok', 'Message sent successfully', contact);
+      else return createError(res, { message: 'Unable to send message' });
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
 
 }
 

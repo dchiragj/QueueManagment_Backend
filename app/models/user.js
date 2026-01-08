@@ -62,22 +62,22 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
   },
-  businessName: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  businessAddress: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  businessRegistrationNumber: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  businessPhone: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
+  // businessName: {
+  //   type: DataTypes.STRING,
+  //   allowNull: true,
+  // },
+  // businessAddress: {
+  //   type: DataTypes.STRING,
+  //   allowNull: true,
+  // },
+  // businessRegistrationNumber: {
+  //   type: DataTypes.STRING,
+  //   allowNull: true,
+  // },
+  // businessPhone: {
+  //   type: DataTypes.STRING,
+  //   allowNull: true,
+  // },
   fcmToken: {
     type: DataTypes.STRING(500),
     allowNull: true,
@@ -158,10 +158,10 @@ User.prototype.toAuthJSON = function () {
     token: `${this.createToken()}`,
     verificationRequired: !this.isEmailVerified,
     onboardingRequired: this.isOnboarding,
-    businessName: this.businessName || null,
-    businessAddress: this.businessAddress || null,
-    businessRegistrationNumber: this.businessRegistrationNumber || null,
-    businessPhone: this.businessPhone || null,
+    // businessName: this.businessName || null,
+    // businessAddress: this.businessAddress || null,
+    // businessRegistrationNumber: this.businessRegistrationNumber || null,
+    // businessPhone: this.businessPhone || null,
 
     
   };

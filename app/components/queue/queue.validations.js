@@ -33,7 +33,7 @@ class QueueValidator {
   //     next();
   //   }
   // }
-create(req, res, next) {
+  create(req, res, next) {
     const errors = {};
     const {
       category,
@@ -165,6 +165,62 @@ create(req, res, next) {
     } else {
       next();
     }
+  }
+
+  createBusiness(req, res, next) {
+    const errors = {};
+    const { businessName, businessAddress, businessPhoneNumber, businessRegistrationNumber } = req.body;
+
+    if (isEmpty(businessName)) {
+      errors.businessName = 'Business Name is required';
+    }
+    if (isEmpty(businessAddress)) {
+      errors.businessAddress = 'Address is required';
+    }
+    if (isEmpty(businessPhoneNumber)) {
+      errors.businessPhoneNumber = 'Phone number is required';
+    }
+    if (isEmpty(businessRegistrationNumber)) {
+      errors.businessRegistrationNumber = 'Business Registration Number is required';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return createValidationResponse(res, errors);
+    }
+
+    next();
+  }
+
+  submitContact(req, res, next) {
+    const errors = {};
+    const { firstName, lastName, email, subject, message } = req.body;
+
+    if (isEmpty(firstName)) {
+      errors.firstName = 'First name is required';
+    }
+    if (isEmpty(lastName)) {
+      errors.lastName = 'Last name is required';
+    }
+    if (isEmpty(email)) {
+      errors.email = 'Email address is required';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        errors.email = 'Please enter a valid email address';
+      }
+    }
+    if (isEmpty(subject)) {
+      errors.subject = 'Subject is required';
+    }
+    if (isEmpty(message)) {
+      errors.message = 'Message is required';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return createValidationResponse(res, errors);
+    }
+
+    next();
   }
 }
 

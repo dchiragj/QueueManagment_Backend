@@ -413,6 +413,29 @@ router.delete(
     controller.cancelQueue(req, res);
   },
 );
+
+// ⭐ GET My Business List
+router.get(
+  '/business/list',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.getMyBusinesses(req, res)
+);
+
+// ⭐ CREATE Business
+router.post(
+  '/business/create',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  validations.createBusiness,
+  (req, res) => controller.createBusiness(req, res)
+);
 // ✅ Guest Join APIs (No Auth Required)
 router.post('/:id/join-guest', (req, res) => {
   controller.guestJoin(req, res);
@@ -425,4 +448,18 @@ router.get('/track/:queueId/:trackingToken', (req, res) => {
 router.post('/track/:queueId/:trackingToken/cancel', (req, res) => {
   controller.cancelGuestToken(req, res);
 });
+/**
+ * @route POST api/queue/submit-contact
+ * @description Submit contact form
+ * @returns JSON
+ * @access public
+ */
+router.post(
+  '/submit-contact',
+  validations.submitContact,
+  (req, res) => {
+    controller.submitContact(req, res);
+  },
+);
+
 module.exports = router;

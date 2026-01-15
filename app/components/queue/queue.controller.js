@@ -424,6 +424,75 @@ class QueueController {
     }
   }
 
+  // --- Desk CRUD ---
+
+  async createDesk(req, res) {
+    try {
+      const { user } = req;
+      const payload = { ...req.body };
+      if (payload.categoryId) payload.categoryId = Number(payload.categoryId);
+      if (payload.queueId) payload.queueId = Number(payload.queueId);
+
+      const desk = await deskService.create({
+        ...payload,
+        createdBy: user.id
+      });
+      if (desk) {
+        // Update the 'Desk' field in the Queues table with the desk name
+        await Queue.update(
+          { Desk: desk.name },
+          { where: { id: payload.queueId } }
+        );
+        return createResponse(res, 'ok', 'Desk created successfully', desk);
+      }
+      return createError(res, { message: 'Unable to create desk' });
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
+
+  async updateDesk(req, res) {
+    try {
+      const { id } = req.params;
+      const { user } = req;
+      const desk = await deskService.update(id, {
+        ...req.body,
+        updatedBy: user.id
+      });
+      if (desk) return createResponse(res, 'ok', 'Desk updated successfully', desk);
+      return createError(res, { message: 'Desk not found or unable to update' });
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
+
+  async deleteDesk(req, res) {
+    try {
+      const { id } = req.params;
+      const result = await deskService.delete(id);
+      if (result) return createResponse(res, 'ok', 'Desk deleted successfully');
+      return createError(res, { message: 'Desk not found or unable to delete' });
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
+
+  async getDeskList(req, res) {
+    try {
+      const { user } = req;
+      const { queueId, queue_id } = req.query;
+      const targetQueueId = queueId || queue_id;
+      let desks;
+      if (targetQueueId) {
+        desks = await deskService.get(targetQueueId);
+      } else {
+        desks = await deskService.getByMerchant(user.id);
+      }
+      return createResponse(res, 'ok', 'Desk List', desks);
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
 }
 
 const queueController = new QueueController();

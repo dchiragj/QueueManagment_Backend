@@ -347,14 +347,17 @@ class QueueService extends RepositoryWithUserService {
 
   async getCompletedQueues(userId) {
     try {
-      const result = await Queue.find({ uid: userId, status: { $in: [QUEUE_STATUS.COMPLETED] } }).sort({
-        date: -1,
-        createdAt: -1,
+      const result = await Queue.findAll({
+        where: {
+          merchant: userId,
+          status: QUEUE_STATUS.COMPLETED
+        },
+        order: [['createdAt', 'DESC']]
       });
 
       if (result) {
         return result.map((item) => {
-          return item.toJSON(true);
+          return item.toJSON();
         });
       }
       return undefined;

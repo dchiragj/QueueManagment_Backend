@@ -462,4 +462,73 @@ router.post(
   },
 );
 
+// --- Desk CRUD Routes ---
+
+/**
+ * @route POST api/queue/desk/create
+ */
+router.post(
+  '/desk/create',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  validations.createDesk,
+  (req, res) => controller.createDesk(req, res)
+);
+
+/**
+ * @route PUT api/queue/desk/update/:id
+ */
+router.put(
+  '/desk/update/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  validations.updateDesk,
+  (req, res) => controller.updateDesk(req, res)
+);
+
+/**
+ * @route DELETE api/queue/desk/delete/:id
+ */
+router.delete(
+  '/desk/delete/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.deleteDesk(req, res)
+);
+
+/**
+ * @route GET api/queue/desk/details/:id
+ */
+router.get(
+  '/desk/details/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.getDeskDetails(req, res)
+);
+
+/**
+ * @route GET api/queue/desk/list
+ */
+router.get(
+  '/desk/list',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.getDeskList(req, res)
+);
+
 module.exports = router;

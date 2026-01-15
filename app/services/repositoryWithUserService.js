@@ -1,95 +1,98 @@
-const { where } = require( 'underscore' );
-const Queue = require( '../models/queue' );
-const { isEmpty } = require( '../utils/validator' );
-const { Op } = require( 'sequelize' );
-const User = require( '../models/user' );
+const { where } = require('underscore');
+const Queue = require('../models/queue');
+const { isEmpty } = require('../utils/validator');
+const { Op } = require('sequelize');
+const User = require('../models/user');
 
 class RepositoryWithUserService {
-  constructor ( collection ) {
+  constructor(collection) {
     this.collection = collection;
   }
 
-  async get( userId ) {
+  async get(userId) {
     try {
-      const result = await this.collection.find( { uid: userId } );
-      if ( result ) {
-        return result.map( ( item ) => item.toJSON() );
+      const result = await this.collection.findAll({
+        where: { merchant: userId },
+        order: [['createdAt', 'DESC']]
+      });
+      if (result) {
+        return result.map((item) => item.toJSON());
       }
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
 
-  async gettokenlist( userId, role ) {
+  async gettokenlist(userId, role) {
     try {
-      const result = await this.collection.findAll( {
-        where: { customerId: userId, status: { [ Op.ne ]: 'CANCELLED' }, }, order: [ [ 'createdAt', 'DESC' ] ],
-      } );
+      const result = await this.collection.findAll({
+        where: { customerId: userId, status: { [Op.ne]: 'CANCELLED' }, }, order: [['createdAt', 'DESC']],
+      });
 
-      if ( result && result.length > 0 ) {
-        return result.map( ( item ) => item.toJSON() );
+      if (result && result.length > 0) {
+        return result.map((item) => item.toJSON());
       }
 
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
 
 
-  async getRaw( userId ) {
+  async getRaw(userId) {
     try {
-      const result = await this.collection.find( { uid: userId } );
-      if ( result ) return result;
+      const result = await this.collection.find({ uid: userId });
+      if (result) return result;
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
 
-  async getSingle( userId, id ) {
+  async getSingle(userId, id) {
     try {
-      if ( !id ) return;
+      if (!id) return;
 
-      const result = await this.collection.findOne( { _id: id, uid: userId } );
-      if ( result ) return result.toJSON();
+      const result = await this.collection.findOne({ _id: id, uid: userId });
+      if (result) return result.toJSON();
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
-  async getSingleQueue( userId, id ) {
+  async getSingleQueue(userId, id) {
     try {
-      if ( !id ) return;
-      const result = await Queue.findOne( { where: { id } } );
+      if (!id) return;
+      const result = await Queue.findOne({ where: { id } });
 
-      if ( result ) return result.toJSON();
+      if (result) return result.toJSON();
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
-    async getSingleQueuenextToken( userId, id ) {
+  async getSingleQueuenextToken(userId, id) {
     try {
-      if ( !id ) return;
-      const result = await Queue.findOne( {
-         where: { id }, 
+      if (!id) return;
+      const result = await Queue.findOne({
+        where: { id },
         include: [{ model: User, attributes: ['fcmToken'], as: 'user' }],
-      } );
+      });
 
-      if ( result ) return result.toJSON();
+      if (result) return result.toJSON();
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
-  async getSingleQueueByJoinMethod( userId, options = {} ) {
+  async getSingleQueueByJoinMethod(userId, options = {}) {
     try {
       const { joinMethods, joinCode, link, lat, long, queueId, categoryId } = options;
 
-      if ( !joinMethods )
-        throw new Error( 'joinMethod is required to fetch queue' );
+      if (!joinMethods)
+        throw new Error('joinMethod is required to fetch queue');
 
       let whereCondition = {
         isActive: true,
@@ -97,54 +100,54 @@ class RepositoryWithUserService {
       };
 
       // 🧭 Build dynamic where condition
-      switch ( joinMethods ) {
+      switch (joinMethods) {
         case 'private':
-          if ( !joinCode ) throw new Error( 'joinCode is required for private join' );
+          if (!joinCode) throw new Error('joinCode is required for private join');
           whereCondition.joinCode = joinCode;
           break;
 
         case 'link':
-          if ( !link ) throw new Error( 'link is required for link join' );
-          const parsedUrl = new URL( link );
-          const extractedQueueId = parsedUrl.searchParams.get( "queueId" );
-          const extractedCategoryId = parsedUrl.searchParams.get( "categoryId" );
+          if (!link) throw new Error('link is required for link join');
+          const parsedUrl = new URL(link);
+          const extractedQueueId = parsedUrl.searchParams.get("queueId");
+          const extractedCategoryId = parsedUrl.searchParams.get("categoryId");
 
-          if ( !extractedQueueId ) throw new Error( "queueId not found in link" );
+          if (!extractedQueueId) throw new Error("queueId not found in link");
           whereCondition.id = extractedQueueId;
           whereCondition.category = extractedCategoryId;
           break;
 
         case 'location':
-          if ( !lat || !long ) throw new Error( 'lat & long are required for location join' );
+          if (!lat || !long) throw new Error('lat & long are required for location join');
           // Fetch all queues and pick nearest (for simplicity)
-          const allQueues = await Queue.findAll( {
+          const allQueues = await Queue.findAll({
             where: { isActive: true, isCancelled: false },
-          } );
-          if ( !allQueues.length ) return undefined;
+          });
+          if (!allQueues.length) return undefined;
 
           // Simple nearest match (you can replace with haversine)
-          const nearest = allQueues.reduce( ( closest, q ) => {
+          const nearest = allQueues.reduce((closest, q) => {
             const dist = Math.sqrt(
-              Math.pow( q.latitude - lat, 2 ) + Math.pow( q.longitude - long, 2 )
+              Math.pow(q.latitude - lat, 2) + Math.pow(q.longitude - long, 2)
             );
             return !closest || dist < closest.dist ? { queue: q, dist } : closest;
-          }, null );
+          }, null);
 
           return nearest?.queue?.toJSON() ?? undefined;
 
         case 'qr':
-          if ( !queueId ) throw new Error( 'queueId is required for qr join' );
+          if (!queueId) throw new Error('queueId is required for qr join');
           whereCondition.id = queueId;
           whereCondition.category = categoryId;
           break;
 
         default:
-          throw new Error( 'Invalid joinMethod' );
+          throw new Error('Invalid joinMethod');
       }
-      console.log( whereCondition, "conde123" );
+      console.log(whereCondition, "conde123");
 
 
-      const result = await Queue.findOne( {
+      const result = await Queue.findOne({
         where: whereCondition,
         attributes: [
           'id', 'name', 'description', 'category',
@@ -156,73 +159,73 @@ class RepositoryWithUserService {
           {
             model: User,
             as: 'merchantUser',
-            attributes: [ 'id', 'FirstName', 'LastName', 'email' ],
+            attributes: ['id', 'FirstName', 'LastName', 'email'],
           },
         ],
-      } );
+      });
 
       return result ? result.toJSON() : undefined;
-    } catch ( e ) {
-      console.error( 'getSingleQueue error:', e.message );
+    } catch (e) {
+      console.error('getSingleQueue error:', e.message);
       throw e;
     }
   }
 
-  async getSingletoken( userId, id ) {
+  async getSingletoken(userId, id) {
     try {
-      if ( !id ) return;
+      if (!id) return;
       // Look up a queue owned by the user
 
 
-      const result = await this.collection.findOne( {
+      const result = await this.collection.findOne({
         where: { customerId: userId, queueId: id }
-      } );
-      if ( result ) return result.toJSON();
+      });
+      if (result) return result.toJSON();
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
-  async getSingleRaw( userId, id ) {
+  async getSingleRaw(userId, id) {
     try {
-      if ( !id ) return;
+      if (!id) return;
 
-      const result = await this.collection.findOne( { _id: id, uid: userId } );
-      if ( result ) return result;
+      const result = await this.collection.findOne({ _id: id, uid: userId });
+      if (result) return result;
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
 
-  async create( userId, payload ) {
+  async create(userId, payload) {
 
     try {
-      if ( !payload ) return;
+      if (!payload) return;
 
       // Remove blank or undefined value from object
-      Object.keys( payload ).forEach( ( key ) => {
-        if ( isEmpty( payload[ key ] ) === true ) delete payload[ key ];
-      } );
+      Object.keys(payload).forEach((key) => {
+        if (isEmpty(payload[key]) === true) delete payload[key];
+      });
 
       const itemPayload = {
         ...payload,
         uid: userId,
         createdBy: userId,
       };
-      const result = await this.collection.create( itemPayload );
-      if ( result ) return result.toJSON();
+      const result = await this.collection.create(itemPayload);
+      if (result) return result.toJSON();
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
 
-  async update( userId, id, payload ) {
+  async update(userId, id, payload) {
     try {
-      if ( !userId ) throw new Error( 'userId is required' );
-      if ( !id ) throw new Error( 'Id is required' );
-      if ( !payload ) throw new Error( 'Data is required' );
+      if (!userId) throw new Error('userId is required');
+      if (!id) throw new Error('Id is required');
+      if (!payload) throw new Error('Data is required');
 
       delete payload.createdBy;
       delete payload.createdAt;
@@ -234,29 +237,29 @@ class RepositoryWithUserService {
         updatedBy: userId,
       };
 
-      const updatePromise = new Promise( async ( resolve, reject ) => {
+      const updatePromise = new Promise(async (resolve, reject) => {
         const query = { _id: id, uid: userId };
-        await this.collection.findOneAndUpdate( query, itemPayload, { new: false }, ( err, result ) => {
-          if ( err ) reject( err );
-          return resolve( result );
-        } );
-      } );
+        await this.collection.findOneAndUpdate(query, itemPayload, { new: false }, (err, result) => {
+          if (err) reject(err);
+          return resolve(result);
+        });
+      });
       const result = await updatePromise;
-      if ( result ) {
-        const item = await this.getSingle( userId, id );
+      if (result) {
+        const item = await this.getSingle(userId, id);
         return item;
       }
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
 
-  async updateItem( userId, id, payload ) {
+  async updateItem(userId, id, payload) {
     try {
-      if ( !userId ) throw new Error( 'userId is required' );
-      if ( !id ) throw new Error( 'Id is required' );
-      if ( !payload ) throw new Error( 'Data is required' );
+      if (!userId) throw new Error('userId is required');
+      if (!id) throw new Error('Id is required');
+      if (!payload) throw new Error('Data is required');
 
       delete payload.createdBy;
       delete payload.createdAt;
@@ -268,20 +271,20 @@ class RepositoryWithUserService {
         updatedBy: userId,
       };
 
-      const updatePromise = new Promise( async ( resolve, reject ) => {
+      const updatePromise = new Promise(async (resolve, reject) => {
         const query = { _id: id, uid: userId };
-        await this.collection.findOneAndUpdate( query, itemPayload, { new: false }, ( err, result ) => {
-          if ( err ) reject( err );
-          return resolve( result );
-        } );
-      } );
+        await this.collection.findOneAndUpdate(query, itemPayload, { new: false }, (err, result) => {
+          if (err) reject(err);
+          return resolve(result);
+        });
+      });
       const result = await updatePromise;
-      if ( result ) {
-        const item = await this.getSingle( userId, id );
+      if (result) {
+        const item = await this.getSingle(userId, id);
         return item;
       }
       return undefined;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
@@ -289,36 +292,36 @@ class RepositoryWithUserService {
   /**
    * @description delete
    */
-  async delete( userId, id ) {
+  async delete(userId, id) {
     try {
       const query = { _id: id, uid: userId };
-      const result = await this.collection.delete( query );
-      if ( result ) {
+      const result = await this.collection.delete(query);
+      if (result) {
         return true;
       }
-      throw Error( 'Unable to delete item' );
-    } catch ( e ) {
+      throw Error('Unable to delete item');
+    } catch (e) {
       throw e;
     }
   }
 
-  async getByIds( userId, ids = [] ) {
+  async getByIds(userId, ids = []) {
     try {
       const query = { uid: userId, _id: { $in: ids } };
-      const result = await this.collection.find( query );
+      const result = await this.collection.find(query);
       return result;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
 
-  async count( userId ) {
+  async count(userId) {
     try {
       const query = { uid: userId };
-      const result = await this.collection.count( query );
-      if ( result ) return result;
+      const result = await this.collection.count(query);
+      if (result) return result;
       return 0;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }
@@ -326,22 +329,22 @@ class RepositoryWithUserService {
   /**
    * @description insert mutiple items
    */
-  async insertMany( userId, items ) {
+  async insertMany(userId, items) {
     try {
-      if ( !items || items.length === 0 ) return false;
+      if (!items || items.length === 0) return false;
       const itemsPayload = [];
-      items.forEach( ( item ) => {
+      items.forEach((item) => {
         const itemPayload = {
           ...item,
           uid: userId,
           createdBy: userId,
           createdAt: new Date(),
         };
-        itemsPayload.push( itemPayload );
-      } );
-      const result = await this.collection.insertMany( itemsPayload );
+        itemsPayload.push(itemPayload);
+      });
+      const result = await this.collection.insertMany(itemsPayload);
       return result;
-    } catch ( e ) {
+    } catch (e) {
       throw e;
     }
   }

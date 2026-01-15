@@ -95,7 +95,8 @@
 
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const Category = require( './category' );
+const Category = require('./category');
+const Queue = require('./queue');
 
 const Desk = sequelize.define('Desk', {
   id: {
@@ -103,29 +104,60 @@ const Desk = sequelize.define('Desk', {
     autoIncrement: true,
     primaryKey: true,
   },
-  category_id: {
+  queueId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    field: 'queue_id',
+    allowNull: true,
+    references: {
+      model: 'Queues',
+      key: 'id',
+    },
+    // onDelete: 'CASCADE',
+  },
+  categoryId: {
+    type: DataTypes.INTEGER,
+    field: 'category_id',
+    allowNull: true,
     references: {
       model: 'categories',
       key: 'id',
     },
-    onDelete: 'CASCADE',
+    onDelete: 'SET NULL',
+  },
+  number: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
   },
   name: {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
-  is_active: {
+  email: {
+    type: DataTypes.STRING(100),
+    field: 'username',
+    allowNull: true,
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  extra1: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  status: {
     type: DataTypes.BOOLEAN,
+    field: 'is_active',
     defaultValue: true,
   },
 }, {
   tableName: 'desks',
-  timestamps: false,
+  timestamps: false, // Let the DB handle created_at / updated_at defaults
+  underscored: true,
 });
 
-// Define relationship
-Desk.belongsTo(Category, { foreignKey: 'category_id' });
+// Define relationships
+Desk.belongsTo(Queue, { foreignKey: 'queueId', as: 'queue' });
+Desk.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 
 module.exports = Desk;

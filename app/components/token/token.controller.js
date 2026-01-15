@@ -176,7 +176,7 @@ class TokenController {
 
       const queues = await Queue.findAll({
         where,
-        attributes: ['id', 'name', 'category', 'start_date', 'status', 'noOfDesk', 'merchant'],
+        attributes: ['id', 'name', 'category', 'start_date', 'status', 'Desk', 'merchant'],
         raw: true
       });
 
@@ -583,9 +583,9 @@ class TokenController {
         }))
       };
 
-             if (upcomingTokens && upcomingTokens.length) {
-              await sendNotificationNextToken(upcomingTokens[0].queueId, upcomingTokens[0].categoryId);
-             }
+      if (upcomingTokens && upcomingTokens.length) {
+        await sendNotificationNextToken(upcomingTokens[0].queueId, upcomingTokens[0].categoryId);
+      }
       return createResponse(res, "ok", "Current token fetched", response);
 
     } catch (error) {

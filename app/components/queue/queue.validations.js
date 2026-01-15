@@ -45,7 +45,7 @@ class QueueValidator {
       end_number,
       latitude,
       longitude,
-      noOfDesk,
+      Desk,
       address,
     } = req.body;
 
@@ -220,6 +220,33 @@ class QueueValidator {
       return createValidationResponse(res, errors);
     }
 
+    next();
+  }
+
+  createDesk(req, res, next) {
+    const errors = {};
+    const { queueId, name, email, password } = req.body;
+
+    if (isEmpty(queueId)) errors.queueId = 'Queue ID is required';
+    if (isEmpty(name)) errors.name = 'Desk name is required';
+    if (isEmpty(email)) errors.email = 'Email is required';
+    if (isEmpty(password)) errors.password = 'Password is required';
+
+    if (Object.keys(errors).length > 0) {
+      return createValidationResponse(res, errors);
+    }
+    next();
+  }
+
+  updateDesk(req, res, next) {
+    const errors = {};
+    const { id } = req.params;
+
+    if (isEmpty(id)) errors.id = 'Desk ID is required';
+
+    if (Object.keys(errors).length > 0) {
+      return createValidationResponse(res, errors);
+    }
     next();
   }
 }

@@ -201,8 +201,8 @@ const Queue = sequelize.define('Queue', {
     type: DataTypes.DATE,
     allowNull: false,
   },
-  noOfDesk: {
-    type: DataTypes.INTEGER,
+  Desk: {
+    type: DataTypes.STRING(255),
     allowNull: true,
   },
   start_number: {
@@ -324,6 +324,14 @@ const Queue = sequelize.define('Queue', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  businessId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Businesses',
+      key: 'id',
+    },
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -379,5 +387,6 @@ const Queue = sequelize.define('Queue', {
 Queue.belongsTo(require('./user'), { foreignKey: 'uid', as: 'user' });
 Queue.belongsTo(require('./user'), { foreignKey: 'merchant', as: 'merchantUser' });
 Queue.belongsTo(require('./category'), { foreignKey: 'category', as: 'categ' });
+Queue.belongsTo(require('./business'), { foreignKey: 'businessId', as: 'business' });
 // Queue.belongsTo(require('./token'), { foreignKey: 'token', as: 'tokens' });
 module.exports = Queue;

@@ -81,6 +81,37 @@ class QueueController {
   }
 
   /**
+   * @description UPDATE queue item
+   */
+  async updateQueue(req, res) {
+    try {
+      const { user } = req;
+      const { id } = req.params;
+
+      if (!(user.role === USER_ROLE_TYPES.MERCHANT || user.role === USER_ROLE_TYPES.BOTH))
+        return createError(res, { message: `You don't have access to update queue.` });
+
+      const queue = await Queue.findOne({ where: { id, merchant: user.id } });
+      console.log(queue, "Queue not found");
+
+      if (!queue) {
+        return createError(res, { message: 'Queue not found' });
+      }
+
+      const payload = { ...req.body };
+      if (payload.businessId) payload.businessId = Number(payload.businessId);
+
+      await queue.update(payload);
+
+      // Fetch updated item to return
+      const updatedItem = await service.getSingleQueue(user.id, id);
+      return createResponse(res, 'ok', 'Queue updated successfully', updatedItem);
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
+
+  /**
    * @description create queue category add bulk items
    */
   async createCategory(req, res) {
@@ -365,7 +396,6 @@ class QueueController {
     try {
       const userId = req.user.id;
 
-      console.log(userId, "userId");
 
 
       const list = await Business.findAll({
@@ -398,6 +428,44 @@ class QueueController {
 
       return createResponse(res, 'ok', 'Business created', business);
 
+    } catch (err) {
+      return createError(res, err);
+    }
+  }
+
+  // ⭐ UPDATE Business
+  async updateBusiness(req, res) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+
+      const business = await Business.findOne({ where: { id, uid: user.id } });
+      if (!business) {
+        return createError(res, { message: 'Business not found' });
+      }
+
+      await business.update(req.body);
+
+      return createResponse(res, 'ok', 'Business updated successfully', business);
+    } catch (err) {
+      return createError(res, err);
+    }
+  }
+
+  // ⭐ DELETE Business
+  async deleteBusiness(req, res) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+
+      const business = await Business.findOne({ where: { id, uid: user.id } });
+      if (!business) {
+        return createError(res, { message: 'Business not found' });
+      }
+
+      await business.destroy();
+
+      return createResponse(res, 'ok', 'Business deleted successfully');
     } catch (err) {
       return createError(res, err);
     }

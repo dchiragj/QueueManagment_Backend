@@ -83,6 +83,26 @@ router.post(
   },
 );
 
+
+
+/**
+ * @route PUT api/queue/update/:id
+ * @description update queue
+ * @returns JSON
+ * @access public
+ */
+router.put(
+  '/update/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    controller.updateQueue(req, res);
+  },
+);
+
 /**
  * @route POST api/queue/category
  * @description create category
@@ -435,6 +455,29 @@ router.post(
   ],
   validations.createBusiness,
   (req, res) => controller.createBusiness(req, res)
+);
+
+// ⭐ UPDATE Business
+router.put(
+  '/business/update/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  validations.createBusiness, // Reuse business validation for update
+  (req, res) => controller.updateBusiness(req, res)
+);
+
+// ⭐ DELETE Business
+router.delete(
+  '/business/delete/:id',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.deleteBusiness(req, res)
 );
 // ✅ Guest Join APIs (No Auth Required)
 router.post('/:id/join-guest', (req, res) => {

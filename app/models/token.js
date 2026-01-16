@@ -218,14 +218,14 @@ const Token = sequelize.define('Token', {
     allowNull: false,
     references: { model: 'Users', key: 'id' },
   },
-   categoryId: {
+  categoryId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: { model: 'Category', key: 'id' },
   },
-    queueName: {
+  queueName: {
     type: DataTypes.STRING,
-    allowNull: false,  
+    allowNull: false,
   },
   tokenNumber: {
     type: DataTypes.INTEGER,
@@ -245,7 +245,7 @@ const Token = sequelize.define('Token', {
     allowNull: false,
     defaultValue: DataTypes.NOW,
   },
-  completedAt :{
+  completedAt: {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW,

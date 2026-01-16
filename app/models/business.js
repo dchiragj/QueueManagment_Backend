@@ -32,7 +32,6 @@ const Business = sequelize.define('Business', {
         type: DataTypes.STRING,
         allowNull: false,
     },
-    
 })
 
 // Associations

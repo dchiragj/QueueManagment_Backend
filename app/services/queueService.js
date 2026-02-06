@@ -11,6 +11,9 @@ const fs = require('fs');
 const User = require('../models/user');
 const category = require('../models/category');
 const path = require('path');
+const { Op } = require('sequelize');
+const QueueDeskMapping = require('../models/QueueDeskMapping');
+const Desk = require('../models/desk');
 
 const validateQueueInputs = (queue) => {
   try {
@@ -160,7 +163,8 @@ class QueueService extends RepositoryWithUserService {
         const obj = JSON.parse(JSON.stringify(payload));
         delete payload.problems;
         delete payload.solutions;
-        delete payload.deskDetails;
+        delete payload.selectedDesks;
+        // delete payload.deskDetails;
 
         payload = {
           ...payload,
@@ -169,14 +173,48 @@ class QueueService extends RepositoryWithUserService {
         };
 
         // 3. CREATE QUEUE + related records
+        // Sanitize payload for SQL
+        if (payload.businessId === "" || payload.businessId === null || payload.businessId === undefined) {
+          payload.businessId = null;
+        } else {
+          payload.businessId = Number(payload.businessId);
+        }
+
+        if (payload.category) {
+          payload.category = Number(payload.category);
+        }
+
+        // Force ISO strings for MSSQL compatibility before super.create
+        if (payload.start_date) payload.start_date = moment.utc(payload.start_date).toISOString();
+        if (payload.end_date) payload.end_date = moment.utc(payload.end_date).toISOString();
+
         const result = await super.create(userId, payload);
-        if (!result) return undefined;
+        if (!result) {
+          console.error('Queue creation failed - no result');
+          return undefined;
+        }
+        console.log('Queue created with ID:', result.id);
+
         if (payload.joinMethods === "location") {
           if (!payload.latitude || !payload.longitude)
             return createError(res, { message: 'Invalid lat & long provided' });
         }
 
-        await deskService.insertMany(userId, result.id, obj.deskDetails);
+        // Process desks only from selectedDesks
+        if (obj.selectedDesks && Array.isArray(obj.selectedDesks)) {
+          const uniqueDeskIds = [...new Set(obj.selectedDesks.map(id => Number(id)).filter(id => !isNaN(id)))];
+
+          if (uniqueDeskIds.length > 0) {
+            const mappingData = uniqueDeskIds.map(deskId => ({
+              queueId: result.id,
+              deskId: deskId
+            }));
+            try {
+              const mappingResult = await QueueDeskMapping.bulkCreate(mappingData);
+            } catch (mappingError) {
+            }
+          }
+        }
         await problemAndSolutionService.insertMany(userId, PS_TYPES.PROBLEMS, result.id, obj.problems);
         await problemAndSolutionService.insertMany(userId, PS_TYPES.SOLUTIONS, result.id, obj.solutions);
 
@@ -323,20 +361,37 @@ class QueueService extends RepositoryWithUserService {
   //     throw e;
   //   }
   // }
-  async getByFilter(category, merchantId, start_date, end_date, coordinates) {
+  async getByFilter(category, merchantId, start_date, end_date, coordinates, businessId) {
     try {
       const query = {};
 
       if (category) query.category = category;
       if (merchantId) query.merchant = merchantId;
+
+      // Handle businessId filtering
+      if (businessId && businessId !== 'all') {
+        query.businessId = businessId;
+      }
+      // If 'all' or no businessId, show everything (no filter needed)
+
       // Filter by date range
       if (start_date && end_date) {
         query.start_date = { [Op.lte]: new Date(end_date) };
         query.end_date = { [Op.gte]: new Date(start_date) };
       }
       // query.status = 2 
-      query.isCancelled = 0
-      const result = await Queue.findAll({ where: query });
+      query.isCancelled = { [Op.or]: [0, null] };
+      const result = await Queue.findAll({
+        where: query,
+        include: [
+          {
+            model: require('../models/desk'),
+            as: 'desks',
+            attributes: ['id', 'name'],
+            through: { attributes: [] }
+          }
+        ]
+      });
 
       return result.map((item) => item.toJSON());
     } catch (e) {
@@ -352,6 +407,14 @@ class QueueService extends RepositoryWithUserService {
           merchant: userId,
           status: QUEUE_STATUS.COMPLETED
         },
+        include: [
+          {
+            model: Desk,
+            as: 'desks',
+            attributes: ['id', 'name'],
+            through: { attributes: [] }
+          }
+        ],
         order: [['createdAt', 'DESC']]
       });
 
@@ -360,6 +423,51 @@ class QueueService extends RepositoryWithUserService {
           return item.toJSON();
         });
       }
+      return undefined;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  async get(userId) {
+    try {
+      const result = await Queue.findAll({
+        where: { merchant: userId },
+        include: [
+          {
+            model: Desk,
+            as: 'desks',
+            attributes: ['id', 'name'],
+            through: { attributes: [] }
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+      if (result) {
+        return result.map((item) => item.toJSON());
+      }
+      return undefined;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  async getSingleQueue(userId, id) {
+    try {
+      if (!id) return;
+      const result = await Queue.findOne({
+        where: { id },
+        include: [
+          {
+            model: Desk,
+            as: 'desks',
+            attributes: ['id', 'name'],
+            through: { attributes: [] }
+          }
+        ]
+      });
+
+      if (result) return result.toJSON();
       return undefined;
     } catch (e) {
       throw e;

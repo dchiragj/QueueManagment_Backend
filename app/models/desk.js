@@ -95,8 +95,11 @@
 
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const Category = require('./category');
 const Queue = require('./queue');
+const Business = require('./business');
+const moment = require('moment');
+const jwt = require('jsonwebtoken');
+const { EXPRESS_SECRET } = require('../config/env');
 
 const Desk = sequelize.define('Desk', {
   id: {
@@ -106,23 +109,26 @@ const Desk = sequelize.define('Desk', {
   },
   queueId: {
     type: DataTypes.INTEGER,
-    field: 'queue_id',
+    field: 'queueId',
     allowNull: true,
-    references: {
-      model: 'Queues',
-      key: 'id',
-    },
-    // onDelete: 'CASCADE',
   },
-  categoryId: {
+  businessId: {
     type: DataTypes.INTEGER,
-    field: 'category_id',
+    field: 'businessId',
     allowNull: true,
     references: {
-      model: 'categories',
+      model: 'Businesses',
       key: 'id',
     },
-    onDelete: 'SET NULL',
+  },
+  uid: {
+    type: DataTypes.INTEGER,
+    field: 'uid',
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id',
+    },
   },
   number: {
     type: DataTypes.STRING(20),
@@ -146,18 +152,70 @@ const Desk = sequelize.define('Desk', {
     allowNull: true,
   },
   status: {
-    type: DataTypes.BOOLEAN,
+    type: DataTypes.INTEGER,
     field: 'is_active',
-    defaultValue: true,
+    defaultValue: 1,
   },
+  // createdAt: {
+  //   type: DataTypes.DATE,
+  //   field: 'created_at',
+  //   defaultValue: DataTypes.NOW,
+  // },
+  // updatedAt: {
+  //   type: DataTypes.DATE,
+  //   field: 'updated_at',
+  //   defaultValue: DataTypes.NOW,
+  // },
 }, {
   tableName: 'desks',
-  timestamps: false, // Let the DB handle created_at / updated_at defaults
-  underscored: true,
+  timestamps: false,
+  hooks: {
+    beforeCreate: (desk) => {
+      const now = new Date();   // ✅ Date object
+      desk.createdAt = now;
+      desk.updatedAt = now;
+    },
+    beforeUpdate: (desk) => {
+      desk.updatedAt = new Date();
+    },
+  },
+
 });
 
-// Define relationships
-Desk.belongsTo(Queue, { foreignKey: 'queueId', as: 'queue' });
-Desk.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
+// Create JWT for Desk
+Desk.prototype.createToken = function () {
+  return jwt.sign(
+    {
+      id: this.id,
+      name: this.name,
+      email: this.email,
+      role: 'desk',
+      queueId: this.queueId,
+      businessId: this.businessId,
+    },
+    EXPRESS_SECRET,
+    { expiresIn: 5184000 }
+  );
+};
+
+Desk.prototype.toAuthJSON = function () {
+  return {
+    id: this.id,
+    name: this.name,
+    email: this.email,
+    role: 'desk',
+    queueId: this.queueId,
+    businessId: this.businessId,
+    token: `${this.createToken()}`,
+  };
+};
 
 module.exports = Desk;
+
+// Define relationships
+Desk.belongsTo(require('./queue'), { foreignKey: 'queueId', as: 'queue' });
+Desk.belongsTo(require('./business'), { foreignKey: 'businessId', as: 'branch' });
+
+// Desk <-> Queue (Many-to-Many via QueueDeskMapping)
+Desk.belongsToMany(require('./queue'), { through: require('./QueueDeskMapping'), foreignKey: 'deskId', as: 'queues' });
+Desk.hasMany(require('./QueueDeskMapping'), { foreignKey: 'deskId', as: 'queueMappings' });

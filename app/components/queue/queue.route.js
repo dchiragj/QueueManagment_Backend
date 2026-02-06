@@ -574,4 +574,28 @@ router.get(
   (req, res) => controller.getDeskList(req, res)
 );
 
+/**
+ * @route GET api/queue/desk/assigned-queues
+ */
+router.get(
+  '/desk/assigned-queues',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.getAssignedQueues(req, res)
+);
+
+/**
+ * @route POST api/queue/desk-login-admin
+ * @description desk login from admin panel
+ */
+router.post(
+  '/desk-login-admin',
+  (req, res) => {
+    controller.deskLoginAdmin(req, res);
+  },
+);
+
 module.exports = router;

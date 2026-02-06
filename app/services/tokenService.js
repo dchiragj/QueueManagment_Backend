@@ -158,35 +158,35 @@ class TokenService extends RepositoryWithUserService {
       throw e;
     }
   }
-async generateTokenNumber(queue) {
-  // Check if there are available token numbers
-  const usedTokens = await Token.findAll({
-    where: { queueId: queue.id },
-    attributes: ['tokenNumber'],
-  });
-  const usedTokenNumbers = usedTokens.map(token => token.tokenNumber);
+  async generateTokenNumber(queue) {
+    // Check if there are available token numbers
+    const usedTokens = await Token.findAll({
+      where: { queueId: queue.id },
+      attributes: ['tokenNumber'],
+    });
+    const usedTokenNumbers = usedTokens.map(token => token.tokenNumber);
 
-  // Find the next available token number
-  let tokenNumber = queue.start_number;
-  while (usedTokenNumbers.includes(tokenNumber) && tokenNumber <= queue.end_number) {
-    tokenNumber++;
+    // Find the next available token number
+    let tokenNumber = queue.start_number;
+    while (usedTokenNumbers.includes(tokenNumber) && tokenNumber <= queue.end_number) {
+      tokenNumber++;
+    }
+
+    if (tokenNumber > queue.end_number) {
+      throw new Error('No available token numbers in this queue');
+    }
+
+    return tokenNumber;
   }
-
-  if (tokenNumber > queue.end_number) {
-    throw new Error('No available token numbers in this queue');
-  }
-
-  return tokenNumber;
-}
   async getByQueueIds(userId, queue) {
     try {
-      const result = await Token.find({ uid: userId, queue })
-        .sort({ date: -1, createdAt: -1 })
-        .populate([{ path: 'queue' }]);
+      const result = await Token.findAll({
+        where: { customerId: userId, queueId: queue },
+        include: [{ model: require('../models/queue'), as: 'queue' }],
+        order: [['createdAt', 'DESC']]
+      });
       if (result) {
-        return result.map((item) => {
-          return item.toJSONWithObject(false);
-        });
+        return result.map((item) => item.toJSON());
       }
       return undefined;
     } catch (e) {
@@ -196,16 +196,72 @@ async generateTokenNumber(queue) {
 
   async getCompletedTokens(userId) {
     try {
-      const result = await Token.find({ uid: userId, status: { $in: [TOKEN_STATUS.COMPLETED] } })
-        .populate([{ path: 'queue' }])
-        .sort({ date: -1, createdAt: -1 });
+      const result = await Token.findAll({
+        where: { customerId: userId, status: 'COMPLETED' },
+        include: [{ model: require('../models/queue'), as: 'queue' }],
+        order: [['createdAt', 'DESC']]
+      });
 
       if (result) {
-        return result.map((item) => {
-          return item.toJSONWithObject(true);
-        });
+        return result.map((item) => item.toJSON());
       }
       return undefined;
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  /**
+   * @description Serve the next token for a queue atomically
+   * @param {number} userId - Desk ID
+   * @param {number} queueId
+   */
+  async serveNext(userId, queueId) {
+    try {
+      // 1. Find potential candidates securely
+      const candidates = await Token.findAll({
+        where: {
+          queueId: queueId,
+          status: 'PENDING'
+        },
+        order: [['tokenNumber', 'ASC']], // FCFS
+        limit: 5 // Fetch a few to try avoiding collision
+      });
+
+      if (!candidates || candidates.length === 0) {
+        return null; // No tokens to serve
+      }
+
+      // 2. Try to lock one
+      for (const candidate of candidates) {
+        const [updatedCount] = await Token.update(
+          {
+            status: 'ACTIVE',
+            startTime: new Date(),
+            // servedBy: userId // Uncomment if we track who served it in Token model
+            updatedAt: new Date()
+          },
+          {
+            where: {
+              id: candidate.id,
+              status: 'PENDING' // Optimistic Lock Condition
+            }
+          }
+        );
+
+        if (updatedCount > 0) {
+          // Success! We grabbed this token.
+          // Fetch fresh data including customer info
+          return await Token.findByPk(candidate.id, {
+            include: [
+              { model: require('../models/user'), as: 'customer', attributes: ['firstName', 'lastName'] },
+              { model: require('../models/queue'), as: 'queue', attributes: ['name'] }
+            ]
+          });
+        }
+      }
+
+      return null; // Could not grab any token (unexpected high contention)
     } catch (e) {
       throw e;
     }

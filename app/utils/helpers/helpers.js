@@ -245,9 +245,9 @@ exports.userFriendlyString = (value, replaceChar) => {
   return value === undefined
     ? ''
     : value
-        .replace(/[^a-z0-9_]+/gi, replaceChar)
-        .replace(/^-|-$/g, '')
-        .toLowerCase();
+      .replace(/[^a-z0-9_]+/gi, replaceChar)
+      .replace(/^-|-$/g, '')
+      .toLowerCase();
 };
 
 exports.getNextNumber = (key = '', type = 1) => {
@@ -278,62 +278,62 @@ exports.getNextNumber = (key = '', type = 1) => {
   }
 };
 
- exports.sendNotificationNextToken = async (queueId, categoryId) => {
+exports.sendNotificationNextToken = async (queueId, categoryId) => {
   try {
-      const tokens = await Token.findAll({
-        where: {
-          queueId,
-          categoryId,
-          // isSkipped: false,
-          status: 'PENDING',
-        },
-        include: [{ model: User, attributes: ['fcmToken', 'firstName', 'lastName'], as: 'customer' }],
-        order: [['tokenNumber', 'ASC']],
-      });
-      // if (tokens.length < 3) {
-      //   return res.json({ message: 'Less than 3 tokens, no notification sent' });
-      // }
+    const tokens = await Token.findAll({
+      where: {
+        queueId,
+        categoryId,
+        // isSkipped: false,
+        status: 'PENDING',
+      },
+      include: [{ model: User, attributes: ['fcmToken', 'firstName', 'lastName'], as: 'customer' }],
+      order: [['tokenNumber', 'ASC']],
+    });
+    // if (tokens.length < 3) {
+    //   return res.json({ message: 'Less than 3 tokens, no notification sent' });
+    // }
 
-      const thirdToken = tokens[0];
-      const user = thirdToken.customer;
+    const thirdToken = tokens[0];
+    const user = thirdToken.customer;
 
-      if (!user?.fcmToken) {
-        return { message: 'No FCM token for user', tokenNumber: thirdToken.tokenNumber };
-      }
-
-      const message = {
-        token: user.fcmToken,
-        notification: {
-          title: 'Your turn has arrived!',
-          body: `Token ${thirdToken.tokenNumber} - Please come now!`,
-        },
-        data: {
-          type: 'turn_approaching',
-          tokenNumber: thirdToken.tokenNumber.toString(),
-          queueId: queueId.toString(),
-        },
-        android: {
-          priority: 'high',
-          notification: {
-            sound: 'default',
-            channelId: 'queue_alert',
-          },
-        },
-      };
-const response = await admin.messaging().send(message);
-      console.log(response,"response fcm");
-
-      // await admin.messaging().send(message);
-      return {
-        success: true,
-        notifiedToken: thirdToken.tokenNumber,
-        customer: `${user.firstName} ${user.lastName}`,
-      };
-
-    } catch (error) {
-      console.error('FCM Error:', error.message);
-      return { error: error.message };
+    if (!user?.fcmToken) {
+      return { message: 'No FCM token for user', tokenNumber: thirdToken.tokenNumber };
     }
+
+    const message = {
+      token: user.fcmToken,
+      notification: {
+        title: 'Your turn has arrived!',
+        body: `Token ${thirdToken.tokenNumber} - Please come now!`,
+      },
+      data: {
+        type: 'turn_approaching',
+        tokenNumber: thirdToken.tokenNumber.toString(),
+        queueId: queueId.toString(),
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          channelId: 'queue_alert',
+        },
+      },
+    };
+    const response = await admin.messaging().send(message);
+    console.log(response, "response fcm");
+
+    // await admin.messaging().send(message);
+    return {
+      success: true,
+      notifiedToken: thirdToken.tokenNumber,
+      customer: `${user.firstName} ${user.lastName}`,
+    };
+
+  } catch (error) {
+    console.error('FCM Error:', error.message);
+    return { error: error.message };
+  }
   // }
   // try {
 
@@ -426,45 +426,45 @@ const response = await admin.messaging().send(message);
   //   return { error: error.message };
   // }
 
-  
+
 };
- exports.sendNotificationNewToken = async (fcmToken,queueName, tokenNumber) => {
+exports.sendNotificationNewToken = async (fcmToken, queueName, tokenNumber) => {
   try {
     if (!fcmToken) {
       return { message: 'No FCM token for user' };
     }
-      
-      const message = {
-        token:fcmToken,
+
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: 'New Token Generated',
+        body: `Token ${tokenNumber} - for Queue ${queueName}`,
+      },
+      data: {
+        type: 'turn_approaching',
+        tokenNumber: tokenNumber.toString(),
+        queueName: queueName.toString(),
+      },
+      android: {
+        priority: 'high',
         notification: {
-          title: 'New Token Generated',
-          body: `Token ${tokenNumber} - for Queue ${queueName}`,
+          sound: 'default',
+          channelId: 'queue_alert',
         },
-        data: {
-          type: 'turn_approaching',
-          tokenNumber: tokenNumber.toString(),
-          queueName: queueName.toString(),
-        },
-        android: {
-          priority: 'high',
-          notification: {
-            sound: 'default',
-            channelId: 'queue_alert',
-          },
-        },
-      };
+      },
+    };
 
-      await admin.messaging().send(message);
-      return {
-        success: true,
-        message: 'Notified to merchant',
-        // customer: `${user.firstName} ${user.lastName}`,
-      };
+    await admin.messaging().send(message);
+    return {
+      success: true,
+      message: 'Notified to merchant',
+      // customer: `${user.firstName} ${user.lastName}`,
+    };
 
-    } catch (error) {
-      console.error('FCM Error:', error.message);
-      return { error: error.message };
-    }
+  } catch (error) {
+    console.error('FCM Error:', error.message);
+    return { error: error.message };
+  }
 };
 
 

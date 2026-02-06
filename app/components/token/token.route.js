@@ -115,6 +115,22 @@ router.post(
 );
 
 /**
+ * @route POST api/token/serve-next
+ * @description Serve next token for a queue
+ */
+router.post(
+  '/serve-next',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    controller.serveNextToken(req, res);
+  },
+);
+
+/**
  * @route GET api/token/details/:id
  * @description Get token details
  * @returns JSON
@@ -190,6 +206,7 @@ router.post(
         tokenNumber: nextTokenNumber,
         customerId: req.user.id,
         categoryId: parseInt(categoryId),
+        businessId: queue.businessId, // Added businessId from queue
         status: 'PENDING',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -395,6 +412,7 @@ router.post('/generate-token-web', async (req, res) => {
       tokenNumber: nextTokenNumber,
       customerId,
       categoryId: parseInt(categoryId),
+      businessId: queue.businessId, // Added businessId from queue
       status: 'PENDING',
     });
 
@@ -601,9 +619,9 @@ router.delete(
       }
 
       // Check if token is COMPLETED (optional: prevent cancelling completed tokens)
-      if (token.status === 'COMPLETED') {
-        return createError(res, { message: 'Cannot cancel a completed token' }, 400);
-      }
+      // if (token.status === 'COMPLETED') {
+      //   return createError(res, { message: 'Cannot cancel a completed token' }, 400);
+      // }
 
       // Update token status to CANCELLED
       await token.update({
@@ -723,6 +741,22 @@ router.get(
     PassportErrorHandler.error,
   ],
   controller.getCompletedHistory
+);
+
+/**
+ * @route GET api/token/merchant/analytics
+ * @description Get merchant analytics (summary + history)
+ * @returns JSON
+ * @access Private (Merchant only)
+ */
+router.get(
+  '/merchant/analytics',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  controller.getMerchantAnalytics
 );
 
 router.get(

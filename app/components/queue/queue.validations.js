@@ -225,9 +225,9 @@ class QueueValidator {
 
   createDesk(req, res, next) {
     const errors = {};
-    const { queueId, name, email, password } = req.body;
+    const { queueId, businessId, name, email, password } = req.body;
 
-    if (isEmpty(queueId)) errors.queueId = 'Queue ID is required';
+    // if (isEmpty(businessId)) errors.businessId = 'Business ID is required';
     if (isEmpty(name)) errors.name = 'Desk name is required';
     if (isEmpty(email)) errors.email = 'Email is required';
     if (isEmpty(password)) errors.password = 'Password is required';

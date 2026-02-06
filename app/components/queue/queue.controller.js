@@ -3,7 +3,7 @@ const problemAndSolutionService = require('./../../services/problemAndSolutionSe
 const categoryService = require('./../../services/categoryService');
 const deskService = require('./../../services/deskService');
 const service = require('./../../services/queueService');
-const { PS_TYPES, USER_ROLE_TYPES } = require('../../config/constants');
+const { PS_TYPES, USER_ROLE_TYPES, QUEUE_STATUS } = require('../../config/constants');
 const queue = require('../../models/queue');
 const Queue = require('../../models/queue');
 const moment = require('moment');
@@ -21,8 +21,8 @@ class QueueController {
 
     try {
       const { user } = req;
-      const { category, merchantId, start_date, end_date, coordinates } = req.query;
-      const items = await service.getByFilter(category, merchantId, start_date, end_date, coordinates);
+      const { category, merchantId, start_date, end_date, coordinates, businessId } = req.query;
+      const items = await service.getByFilter(category, merchantId, start_date, end_date, coordinates, businessId);
       if (items) return createResponse(res, 'ok', 'List', items);
       else return createError(res, { message: 'Unable to fetch queue list' });
     } catch (e) {
@@ -274,39 +274,40 @@ class QueueController {
   async cancelQueue(req, res) {
     try {
       const { id } = req.params;
+      const { user } = req;
       const { cancelled_comment } = req.body;
-      const userId = req.user.id; // Assuming req.user contains the authenticated user's data from passport
 
-      // Find the queue
-      const queue = await Queue.findByPk(id);
-      if (!queue) {
-        return res.status(404).json({ message: 'Queue not found' });
+      // Ensure only merchant/owner can cancel
+      const q = await Queue.findOne({ where: { id, merchant: user.id } });
+      if (!q) {
+        return createError(res, { message: 'Queue not found or unauthorized' });
       }
 
       // Check if queue is already canceled
-      if (queue.isCancelled) {
-        return res.status(400).json({ message: 'Queue is already canceled' });
+      if (q.isCancelled || q.status === QUEUE_STATUS.CANCELLED) {
+        return createError(res, { message: 'Queue is already canceled' });
       }
 
-      // Current date and time in UTC (e.g., 2025-10-09 10:21:00 UTC from your example, adjusted to current time)
       const currentUtcTime = moment().utc().toDate();
 
-      // Update cancellation fields to match the example
-      await queue.update({
+      // Update cancellation fields
+      await q.update({
         isCancelled: true,
-        cancelledBy: userId,
+        cancelledBy: user.id,
         cancelled_date: currentUtcTime,
         cancelled_comment: cancelled_comment || null,
-        status: 2, // Assuming 2 represents "CANCELED" (adjust based on your status mapping)
-        deletedAt: currentUtcTime, // For soft delete (paranoid: true)
+        status: QUEUE_STATUS.CANCELLED,
       });
 
-      return res.status(200).json({ message: 'Queue canceled successfully' });
+      // Soft delete using paranoid (if paranoid is true in model, destroy() will set deletedAt)
+      await q.destroy();
+
+      return createResponse(res, 'ok', 'Queue canceled successfully');
     } catch (error) {
       console.error('Error canceling queue:', error);
-      return res.status(500).json({ message: 'Server error' });
+      return createError(res, error);
     }
-  };
+  }
 
   /**
    * @description Sign in with email and password
@@ -317,6 +318,19 @@ class QueueController {
       const desk = await deskService.validateDeskCredential(queueId, req.body);
       if (desk) {
         createResponse(res, 'ok', 'Desk Login successful', desk);
+      } else {
+        createError(res, {}, { message: 'Invalid Credentials' });
+      }
+    } catch (e) {
+      createError(res, e);
+    }
+  }
+
+  async deskLoginAdmin(req, res) {
+    try {
+      const deskInstance = await deskService.validateDeskOnlyRaw(req.body);
+      if (deskInstance) {
+        createResponse(res, 'ok', 'Desk Login successful', deskInstance.toAuthJSON());
       } else {
         createError(res, {}, { message: 'Invalid Credentials' });
       }
@@ -495,22 +509,27 @@ class QueueController {
   // --- Desk CRUD ---
 
   async createDesk(req, res) {
+    console.log("hello desk", req.body);
+
     try {
       const { user } = req;
       const payload = { ...req.body };
-      if (payload.categoryId) payload.categoryId = Number(payload.categoryId);
       if (payload.queueId) payload.queueId = Number(payload.queueId);
+      if (payload.businessId) payload.businessId = Number(payload.businessId);
 
       const desk = await deskService.create({
         ...payload,
+        uid: user.id,
         createdBy: user.id
       });
       if (desk) {
-        // Update the 'Desk' field in the Queues table with the desk name
-        await Queue.update(
-          { Desk: desk.name },
-          { where: { id: payload.queueId } }
-        );
+        // Update the 'Desk' field in the Queues table if queueId is provided
+        if (payload.queueId) {
+          await Queue.update(
+            { Desk: desk.name },
+            { where: { id: payload.queueId } }
+          );
+        }
         return createResponse(res, 'ok', 'Desk created successfully', desk);
       }
       return createError(res, { message: 'Unable to create desk' });
@@ -545,18 +564,53 @@ class QueueController {
     }
   }
 
+  async getDeskDetails(req, res) {
+    try {
+      const { id } = req.params;
+      const desk = await Desk.findByPk(id, {
+        include: [
+          { model: Queue, as: 'queue', required: false },
+          { model: Business, as: 'branch', required: false }
+        ]
+      });
+      if (desk) return createResponse(res, 'ok', 'Desk Details', desk);
+      return createError(res, { message: 'Desk not found' });
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
+
   async getDeskList(req, res) {
     try {
       const { user } = req;
-      const { queueId, queue_id } = req.query;
-      const targetQueueId = queueId || queue_id;
+      const { queueId, businessId } = req.query;
+      const targetQueueId = queueId;
       let desks;
       if (targetQueueId) {
         desks = await deskService.get(targetQueueId);
+      } else if (businessId) {
+        desks = await deskService.getByBusiness(businessId, user.id);
       } else {
         desks = await deskService.getByMerchant(user.id);
       }
       return createResponse(res, 'ok', 'Desk List', desks);
+    } catch (e) {
+      return createError(res, e);
+    }
+  }
+
+  /**
+   * @description Get queues assigned to the logged-in desk
+   */
+  async getAssignedQueues(req, res) {
+    try {
+      const { user } = req;
+      if (user.role !== 'desk') {
+        return createError(res, { message: 'Only desks can access this' });
+      }
+
+      const queues = await deskService.getAssignedQueues(user.id);
+      return createResponse(res, 'ok', 'Assigned Queues', queues);
     } catch (e) {
       return createError(res, e);
     }

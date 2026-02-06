@@ -223,6 +223,11 @@ const Token = sequelize.define('Token', {
     allowNull: false,
     references: { model: 'Category', key: 'id' },
   },
+  businessId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'Businesses', key: 'id' },
+  },
   queueName: {
     type: DataTypes.STRING,
     allowNull: false,

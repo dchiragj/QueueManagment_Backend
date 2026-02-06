@@ -27,7 +27,7 @@ class RepositoryWithUserService {
   async gettokenlist(userId, role) {
     try {
       const result = await this.collection.findAll({
-        where: { customerId: userId, status: { [Op.ne]: 'CANCELLED' }, }, order: [['createdAt', 'DESC']],
+        where: { customerId: userId, status: { [Op.notIn]: ['CANCELLED', 'COMPLETED'] }, }, order: [['createdAt', 'DESC']],
       });
 
       if (result && result.length > 0) {

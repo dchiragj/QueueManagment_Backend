@@ -182,7 +182,7 @@ const Queue = sequelize.define('Queue', {
     },
   },
   category: {
-    type: DataTypes.NUMBER,
+    type: DataTypes.INTEGER,
     allowNull: false,
   },
   name: {
@@ -226,11 +226,14 @@ const Queue = sequelize.define('Queue', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
-  latitude: {
-    type: DataTypes.FLOAT
-  },
-  longitude: {
-    type: DataTypes.FLOAT
+
+  businessId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Businesses',
+      key: 'id',
+    },
   },
   address: {
     type: DataTypes.STRING(255),
@@ -271,6 +274,7 @@ const Queue = sequelize.define('Queue', {
   isCancelled: {
     type: DataTypes.BOOLEAN,
     allowNull: true,
+    defaultValue: 0,
   },
   cancelledBy: {
     type: DataTypes.INTEGER,
@@ -352,33 +356,39 @@ const Queue = sequelize.define('Queue', {
       }
       queue.joinCode = joinCode;
       // Ensure start_date and end_date are valid Date objects
-      if (queue.dataValues.start_date && !(queue.dataValues.start_date instanceof Date)) {
-        queue.dataValues.start_date = moment(queue.dataValues.start_date).toDate();
+      if (queue.dataValues.start_date && typeof queue.dataValues.start_date === 'string') {
+        const d = moment.utc(queue.dataValues.start_date);
+        if (d.isValid()) queue.dataValues.start_date = d.toDate();
       }
-      if (queue.dataValues.end_date && !(queue.dataValues.end_date instanceof Date)) {
-        queue.dataValues.end_date = moment(queue.dataValues.end_date).toDate();
+      if (queue.dataValues.end_date && typeof queue.dataValues.end_date === 'string') {
+        const d = moment.utc(queue.dataValues.end_date);
+        if (d.isValid()) queue.dataValues.end_date = d.toDate();
       }
 
       queue.createdAt = moment().utc().toDate();
       queue.updatedAt = moment().utc().toDate();
-
     },
     beforeUpdate: (queue) => {
-      if (queue.start_date && !(queue.start_date instanceof Date)) {
-        queue.start_date = moment(queue.start_date).toDate();
+      if (queue.start_date && typeof queue.start_date === 'string') {
+        const d = moment.utc(queue.start_date);
+        if (d.isValid()) queue.start_date = d.toDate();
       }
-      if (queue.end_date && !(queue.end_date instanceof Date)) {
-        queue.end_date = moment(queue.end_date).toDate();
+      if (queue.end_date && typeof queue.end_date === 'string') {
+        const d = moment.utc(queue.end_date);
+        if (d.isValid()) queue.end_date = d.toDate();
       }
       queue.updatedAt = moment().utc().toDate();
     },
   },
 });
+module.exports = Queue;
 
 // Associations
 Queue.belongsTo(require('./user'), { foreignKey: 'uid', as: 'user' });
 Queue.belongsTo(require('./user'), { foreignKey: 'merchant', as: 'merchantUser' });
 Queue.belongsTo(require('./category'), { foreignKey: 'category', as: 'categ' });
-// Queue.belongsTo(require('./business'), { foreignKey: 'businessId', as: 'business' });
-// Queue.belongsTo(require('./token'), { foreignKey: 'token', as: 'tokens' });
-module.exports = Queue;
+Queue.belongsTo(require('./business'), { foreignKey: 'businessId', as: 'branch' });
+
+// Queue <-> Desk (Many-to-Many via QueueDeskMapping)
+Queue.belongsToMany(require('./desk'), { through: require('./QueueDeskMapping'), foreignKey: 'queueId', as: 'desks' });
+Queue.hasMany(require('./QueueDeskMapping'), { foreignKey: 'queueId', as: 'deskMappings' });

@@ -1025,4 +1025,22 @@ router.get('/tokenstatus/:tokenId', async (req, res) => {
 //   }
 // );
 
+/**
+ * @route POST api/token/broadcast
+ * @description broadcast message to active customers
+ * @returns JSON
+ * @access public
+ */
+router.post(
+  '/broadcast',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    controller.broadcast(req, res);
+  },
+);
+
 module.exports = router;

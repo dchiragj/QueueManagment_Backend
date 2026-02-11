@@ -190,23 +190,110 @@ class TokenController {
   /**
    * @description Serve next token
    */
+  /**
+   * @description Serve next token in queue (FIFO - sequential serving)
+   */
   async serveNextToken(req, res) {
     try {
       const { user } = req;
-      const { queueId } = req.body; // Expecting queueId in body
+      const { queueId } = req.body;
 
       if (!queueId) {
         return createError(res, { message: 'Queue ID is required' });
       }
 
-      const token = await service.serveNext(user.id, queueId);
-
-      if (token) {
-        return createResponse(res, 'ok', 'Serving Token', token);
-      } else {
-        return createResponse(res, 'ok', 'No tokens available', null);
+      // Verify authorization
+      const queue = await Queue.findByPk(queueId);
+      if (!queue) {
+        return createError(res, { message: 'Queue not found' });
       }
+
+      let isAuthorized = false;
+      if (user.role === 'desk') {
+        if (user.queueId == queueId) {
+          isAuthorized = true;
+        } else {
+          const Desk = require('../../models/desk');
+          const count = await Desk.count({
+            where: { id: user.id },
+            include: [{
+              model: Queue,
+              as: 'queues',
+              where: { id: queueId }
+            }]
+          });
+          if (count > 0) isAuthorized = true;
+        }
+      } else {
+        isAuthorized = queue.merchant === user.id;
+      }
+
+      if (!isAuthorized) {
+        return createError(res, { message: 'Unauthorized to access this queue' }, 403);
+      }
+
+      const deskId = user.role === 'desk' ? user.id : (req.body.deskId || null);
+
+      // Find next PENDING token (FIFO - First In First Out)
+      // We'll try to find and update in a loop to handle race conditions
+      let nextToken = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (attempts < maxAttempts) {
+        nextToken = await Token.findOne({
+          where: {
+            queueId: queueId,
+            status: 'PENDING'
+          },
+          order: [['createdAt', 'ASC']]
+        });
+
+        if (!nextToken) break;
+
+        // Try to atomically claim this specific token
+        const [updatedRows] = await Token.update({
+          status: 'ACTIVE',
+          servedByDeskId: user.role === 'desk' ? user.id : (req.body.deskId || null),
+          updatedAt: new Date()
+        }, {
+          where: {
+            id: nextToken.id,
+            status: 'PENDING' // CRITICAL: Only if it's still pending!
+          }
+        });
+
+        if (updatedRows > 0) {
+          console.log(`Token #${nextToken.tokenNumber} claimed by Desk ${deskId} (Status: ACTIVE)`);
+          // Successfully claimed!
+          // Fetch enriched data for response
+          const claimedToken = await Token.findByPk(nextToken.id, {
+            include: [
+              { model: User, as: 'customer', attributes: ['firstName', 'lastName'] },
+              { model: Queue, as: 'queue', attributes: ['name'] }
+            ]
+          });
+
+          console.log(`[AUTH] serveNextToken success: Token #${claimedToken.tokenNumber} (ID: ${claimedToken.id}) assigned to Desk ${deskId}`);
+          return createResponse(res, 'ok', 'Now serving', {
+            id: claimedToken.id,
+            tokenNumber: claimedToken.tokenNumber,
+            customerName: claimedToken.customer
+              ? `${claimedToken.customer.firstName} ${claimedToken.customer.lastName}`.trim()
+              : 'Guest',
+            queueName: claimedToken.queue.name,
+            status: 'ACTIVE',
+            createdAt: claimedToken.createdAt
+          });
+        }
+
+        attempts++;
+      }
+
+      return createResponse(res, 'ok', 'No tokens available to serve', null);
+
     } catch (e) {
+      console.error('Serve next token error:', e);
       return createError(res, e);
     }
   }
@@ -273,7 +360,7 @@ class TokenController {
       const tokens = await Token.findAll({
         where: {
           queueId: queueId,
-          status: ['PENDING', 'SKIPPED', 'ACTIVE']
+          status: { [Op.in]: ['PENDING', 'SKIPPED', 'ACTIVE'] }
         },
         include: [
           {
@@ -295,6 +382,13 @@ class TokenController {
         ...token.toJSON(),
         isSkipped: token.status === 'SKIPPED'
       }));
+
+      // Debug: Log if an ACTIVE token exists
+      const active = enrichedTokens.find(t => t.status === 'ACTIVE');
+      if (active) {
+        console.log(`Queue ${queueId}: Found ACTIVE Token #${active.tokenNumber} served by Desk ${active.servedByDeskId}`);
+      }
+
       return createResponse(res, 'ok', 'Servicing Tokens', enrichedTokens);
     } catch (e) {
       return createError(res, e);
@@ -574,12 +668,34 @@ class TokenController {
         });
 
         if (!token) {
+          console.log(`[AUTH] completeToken FAILED: Token ID ${id} not found`);
           errors.push({ id, error: "Token not found" });
           continue;
         }
-        const isAuthorized = user.role === 'desk'
-          ? user.queueId == token.queueId
-          : true; // Merchant check already covered by middleware if we want, but merchantId isn't on Token easily without include
+
+        console.log(`[AUTH] completeToken called by User ID: ${user.id} (Role: ${user.role}) for Token ID: ${id}`);
+
+        let isAuthorized = false;
+        if (user.role === 'desk') {
+          if (user.queueId == token.queueId) {
+            isAuthorized = true;
+          } else {
+            // Check multi-queue mapping
+            const Desk = require('../../models/desk');
+            const count = await Desk.count({
+              where: { id: user.id },
+              include: [{
+                model: Queue,
+                as: 'queues',
+                where: { id: token.queueId }
+              }]
+            });
+            if (count > 0) isAuthorized = true;
+          }
+        } else {
+          // Merchant or admin check
+          isAuthorized = true; // Assuming merchant middleware handles base auth
+        }
 
         if (!isAuthorized) {
           errors.push({ id, error: "Unauthorized" });
@@ -598,19 +714,8 @@ class TokenController {
           status: "COMPLETED"
         });
 
-        // 2️⃣ Activate next PENDING token
-        const nextToken = await Token.findOne({
-          where: {
-            queueId: token.queueId,
-            categoryId: token.categoryId,
-            status: "PENDING"
-          },
-          order: [["tokenNumber", "ASC"]],
-        });
-
-        if (nextToken) {
-          await nextToken.update({ status: "ACTIVE" });
-        }
+        // 2️⃣ Auto-activation removed to support multi-desk environments.
+        // Desks should manually call the next token using "Call Next Customer".
 
         // 3️⃣ Send notification logic
         await sendNotificationNextToken(token.queueId, token.categoryId);
@@ -632,9 +737,19 @@ class TokenController {
 
       // Build where clause dynamically
       const whereClause = {
-        status: 'COMPLETED',
-        '$queue.merchant$': user.id
+        status: 'COMPLETED'
       };
+
+      // Role-based authorization
+      if (user.role === 'merchant') {
+        whereClause['$queue.merchant$'] = user.id;
+      } else if (user.role === 'desk') {
+        // Desks see tokens for their assigned business
+        whereClause['$queue.businessId$'] = user.businessId;
+      } else {
+        // Regular customers see their own history
+        whereClause.customerId = user.id;
+      }
 
       // Add businessId filter only if provided
       if (businessId && businessId !== 'all') {
@@ -664,12 +779,13 @@ class TokenController {
       const history = tokens.map(t => ({
         id: t.id,
         tokenNumber: t.tokenNumber,
-        name: `${t.customer.firstName} ${t.customer.lastName}`.trim(),
+        name: t.customer ? `${t.customer.firstName} ${t.customer.lastName}`.trim() : (t.customerName || 'Guest'),
         service: t.queue.name,
         completedAt: t.completedAt
       }));
 
-      return createResponse(res, 'ok', 'Completed History', { data: history });
+      // Flattened: Return history directly in 'data' field of createResponse
+      return createResponse(res, 'ok', 'Completed History', history);
     } catch (e) {
       return createError(res, e);
     }
@@ -856,7 +972,15 @@ class TokenController {
         where: {
           queueId: { [Op.in]: queueIds },
           status: 'COMPLETED',
-          completedAt: { [Op.between]: [todayStart, todayEnd] }
+          [Op.or]: [
+            { completedAt: { [Op.between]: [todayStart, todayEnd] } },
+            {
+              [Op.and]: [
+                { completedAt: null },
+                { updatedAt: { [Op.between]: [todayStart, todayEnd] } }
+              ]
+            }
+          ]
         }
       });
       const totalServed = tokensServedToday.length;
@@ -912,24 +1036,161 @@ class TokenController {
           }
         ],
         order: [['updatedAt', 'DESC']],
-        limit: 50
+        limit: 100
       });
 
       const history = historyTokens.map(t => ({
         id: t.id,
         tokenNumber: t.tokenNumber,
         customerName: t.customer ? `${t.customer.firstName} ${t.customer.lastName}`.trim() : 'Guest',
+        queueName: t.queueName,
         completedAt: t.completedAt || t.updatedAt,
         status: t.status
       }));
 
+      // Fetch pending tokens
+      const totalPending = await Token.count({
+        where: {
+          queueId: { [Op.in]: queueIds },
+          status: { [Op.in]: ['PENDING', 'ACTIVE', 'SKIPPED'] }
+        }
+      });
+
+      // Fetch weekly trend (last 7 days completed tokens)
+      const last7Days = [];
+      const currentMoment = moment();
+
+      for (let i = 6; i >= 0; i--) {
+        const targetDay = moment().subtract(i, 'days');
+        const start = moment(targetDay).startOf('day').toDate();
+        const end = moment(targetDay).endOf('day').toDate();
+        const dayName = targetDay.format('ddd');
+
+        const count = await Token.count({
+          where: {
+            queueId: { [Op.in]: queueIds },
+            status: 'COMPLETED',
+            [Op.or]: [
+              { completedAt: { [Op.between]: [start, end] } },
+              {
+                [Op.and]: [
+                  { completedAt: null }, // Fallback for old tokens if any
+                  { updatedAt: { [Op.between]: [start, end] } }
+                ]
+              }
+            ]
+          }
+        });
+        last7Days.push({ day: dayName, count });
+      }
+
       return createResponse(res, 'ok', 'Analytics fetched', {
-        summary: { totalServed, avgWaitTime, completionRate, peakHour },
+        summary: { totalServed, totalCompleted: totalServed, totalPending, avgWaitTime, completionRate, peakHour },
+        weeklyTrend: last7Days,
         history
       });
 
     } catch (e) {
       console.error('Merchant Analytics Error:', e);
+      return createError(res, e);
+    }
+  }
+
+  /**
+   * @description broadcast message to all customers in a business/branch
+   */
+  async broadcast(req, res) {
+    try {
+      const { user } = req;
+      const { businessId, message } = req.body;
+
+      if (user.role !== 'merchant') {
+        return createError(res, { message: 'Only merchants can broadcast messages' });
+      }
+
+      if (!message) {
+        return createError(res, { message: 'Message content is required' });
+      }
+
+      // Find all queues for this merchant and business
+      const queues = await Queue.findAll({
+        where: {
+          merchant: user.id,
+          ...(businessId && businessId !== 'all' ? { businessId } : {})
+        },
+        attributes: ['id', 'name']
+      });
+
+      const queueIds = queues.map(q => q.id);
+
+      if (queueIds.length === 0) {
+        return createError(res, { message: 'No queues found for this business' });
+      }
+
+      // Find all tokens that are PENDING or ACTIVE in these queues
+      const tokens = await Token.findAll({
+        where: {
+          queueId: { [Op.in]: queueIds },
+          status: { [Op.in]: ['PENDING', 'ACTIVE'] }
+        },
+        include: [
+          {
+            model: User,
+            as: 'customer',
+            attributes: ['id', 'fcmToken']
+          }
+        ]
+      });
+
+      if (tokens.length === 0) {
+        return createResponse(res, 'ok', 'No active customers to notify');
+      }
+
+      // Extract unique FCM tokens
+      const fcmTokens = [...new Set(tokens.map(t => t.customer?.fcmToken).filter(token => !!token))];
+
+      if (fcmTokens.length === 0) {
+        return createResponse(res, 'ok', 'No devices found with notification support');
+      }
+
+      // Prepare messaging payload
+      const payload = {
+        notification: {
+          title: `Announcement from ${user.firstName} ${user.lastName}`,
+          body: message,
+        },
+        data: {
+          type: 'broadcast',
+          message: message,
+          businessId: businessId?.toString() || 'all'
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'queue_alert',
+          },
+        },
+      };
+
+      // Send notifications (multicast if multiple tokens)
+      const responses = [];
+      for (let i = 0; i < fcmTokens.length; i += 500) {
+        const batch = fcmTokens.slice(i, i + 500);
+        const response = await admin.messaging().sendEachForMulticast({
+          tokens: batch,
+          ...payload
+        });
+        responses.push(response);
+      }
+
+      return createResponse(res, 'ok', `Broadcast sent to ${fcmTokens.length} active customers`, {
+        notifiedCount: fcmTokens.length,
+        results: responses
+      });
+
+    } catch (e) {
+      console.error('Broadcast Error:', e);
       return createError(res, e);
     }
   }

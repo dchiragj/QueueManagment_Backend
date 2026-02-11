@@ -254,10 +254,22 @@ const Token = sequelize.define('Token', {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW,
+  },
+  servedByDeskId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'desks', key: 'id' },
   }
 }, {
   tableName: 'Tokens',
   timestamps: true,
+  hooks: {
+    beforeUpdate: (token) => {
+      if (token.changed('status')) {
+        console.log(`[DB TOKEN LOG] Token #${token.tokenNumber} (ID: ${token.id}) status change: ${token._previousDataValues.status} -> ${token.status}`);
+      }
+    }
+  }
 });
 
 // Associations

@@ -388,6 +388,7 @@ class UserService {
   //   }
   async forgotPassword(username) {
     try {
+      console.log('forgotPassword called for:', username);
       const normalized_username = String(username).trim().toUpperCase();
       const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
@@ -401,23 +402,26 @@ class UserService {
 
       const userResult = await User.findOne({ where: query });
       if (!userResult) {
+        console.log('User not found for forgotPassword');
         return false;
       }
+      console.log('User found:', userResult.id);
 
+      // Use standard Date object - Sequelize handles the dialect specific conversion
       const userotp = await User.update(
         {
           Otp: otp,
           OtpExpiry: sequelize.literal(
-            `'${otpExpiry.toISOString().slice(0, 23).replace('T', ' ')}'`
-          ), // ✅ MSSQL safe format
+            `'${otpExpiry.toISOString().slice(0, 19).replace('T', ' ')}'`
+          ),
         },
-
         { where: query }
       );
+      console.log('User OTP updated', userotp);
 
       const clientMsg = {
         to: userResult.email,
-        from: process.env.SMTP_USERNAME,
+        from: process.env.SMTP_USERNAME, // Ensure this env var is loaded
         subject: 'Your OTP for Password Reset',
         text: `Hi ${userResult.firstName}, your OTP for password reset is: ${otp}. It expires in 10 minutes.`,
         html: `Hi ${userResult.firstName},<br/>
@@ -425,6 +429,7 @@ class UserService {
              <p>This OTP expires in 10 minutes. Please do not share it with anyone.</p><br/>Queue Team`,
       };
 
+      console.log('Sending email...');
       const sent = await sendEmailService.send(
         clientMsg.to,
         clientMsg.subject,
@@ -432,7 +437,12 @@ class UserService {
         clientMsg.html
       );
 
-      if (!sent) throw new Error('Failed to send OTP email');
+      if (!sent) {
+        console.error('Email sending failed');
+        throw new Error('Failed to send OTP email');
+      }
+      console.log('Email sent successfully');
+
       return { success: true, email: userResult.email };
     } catch (error) {
       console.error('forgotPassword error:', error);

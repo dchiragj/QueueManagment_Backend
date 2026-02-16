@@ -5,7 +5,7 @@ const passport = require('passport');
 const PassportErrorHandler = require('../../middleware/passportErrorResponse');
 const AuthController = require('./auth.controller');
 const AuthValidations = require('./auth.validations');
-const  User  = require('../../models/user');
+const User = require('../../models/user');
 
 /**
  * @route POST api/auth/login
@@ -65,11 +65,11 @@ router.post('/forgot-password', AuthValidations.forgotPassword, (req, res) => {
  * @returns JSON
  * @access public
  */
-router.post('/reset-password',  (req, res) => {
+router.post('/reset-password', (req, res) => {
   AuthController.resetPassword(req, res);
 });
 router.post('/verify-otp', AuthValidations.verifyOtp, (req, res) => {
-  
+
   AuthController.verifyOtp(req, res);
 });
 /**
@@ -111,11 +111,11 @@ router.post(
   },
 );
 
-router.post('/save-fcm-token',[
-    passport.authenticate('jwt', { session: false, failWithError: true }),
-    PassportErrorHandler.success,
-    PassportErrorHandler.error,
-  ], async (req, res) => {
+router.post('/save-fcm-token', [
+  passport.authenticate('jwt', { session: false, failWithError: true }),
+  PassportErrorHandler.success,
+  PassportErrorHandler.error,
+], async (req, res) => {
   const { fcmToken } = req.body;
   try {
     await User.update(

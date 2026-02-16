@@ -32,6 +32,11 @@ const Business = sequelize.define('Business', {
         type: DataTypes.STRING,
         allowNull: false,
     },
+    isActive: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+    },
 })
 
 // Associations

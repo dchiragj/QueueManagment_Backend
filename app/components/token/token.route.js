@@ -211,7 +211,7 @@ router.post(
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      console.log(req.user);
+
 
       // Save token
       const savedToken = await Token.create(token);
@@ -425,7 +425,7 @@ router.post('/generate-token-web', async (req, res) => {
     const startTime = queue.startTime ? formatTime(queue.startTime) : '09:00';
     const endTime = queue.endTime ? formatTime(queue.endTime) : '18:00';
     const trackingLink = `${process.env.WEB_JOIN_DOMAIN}/tokenstatus/${token.id}`
-    console.log(trackingLink, "trackingLink");
+
 
     // Today's date
     const today = new Date().toLocaleDateString('en-GB'); // e.g., 10/12/2025
@@ -466,7 +466,7 @@ router.post('/generate-token-web', async (req, res) => {
           to: `+91${identifier}`,
           from: process.env.SMS_TWILIO_PHONE_NUMBER
         });
-        console.log('SMS Sent ✅ SID:', message.sid);
+
       }
     } catch (smsError) {
       console.error('SMS Failed:', smsError.message);
@@ -541,14 +541,14 @@ router.get('/queue/:queueId/:categoryId', async (req, res) => {
         },
       ],
     });
-    console.log(User, "testuser");
 
-    console.log(queue.toJSON().isActive, "tokenqueue");
+
+
     if (!queue) {
       return createError(res, { message: 'Queue not found' });
     }
 
-    console.log(queue.isActive, "isActive123");
+
 
     if (!queue.isActive) {
       return createError(res, { message: 'Queue is closed or not active' });

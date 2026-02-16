@@ -5,7 +5,7 @@ const passport = require('passport');
 const PassportErrorHandler = require('../../middleware/passportErrorResponse');
 const UserController = require('./user.controller');
 const UserValidations = require('./user.validations');
-const upload = require( '../../../upload' );
+const upload = require('../../../upload');
 
 /**
  * @route POST api/user/me

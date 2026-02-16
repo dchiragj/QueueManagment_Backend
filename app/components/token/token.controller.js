@@ -264,7 +264,7 @@ class TokenController {
         });
 
         if (updatedRows > 0) {
-          console.log(`Token #${nextToken.tokenNumber} claimed by Desk ${deskId} (Status: ACTIVE)`);
+
           // Successfully claimed!
           // Fetch enriched data for response
           const claimedToken = await Token.findByPk(nextToken.id, {
@@ -274,7 +274,7 @@ class TokenController {
             ]
           });
 
-          console.log(`[AUTH] serveNextToken success: Token #${claimedToken.tokenNumber} (ID: ${claimedToken.id}) assigned to Desk ${deskId}`);
+
           return createResponse(res, 'ok', 'Now serving', {
             id: claimedToken.id,
             tokenNumber: claimedToken.tokenNumber,
@@ -386,7 +386,7 @@ class TokenController {
       // Debug: Log if an ACTIVE token exists
       const active = enrichedTokens.find(t => t.status === 'ACTIVE');
       if (active) {
-        console.log(`Queue ${queueId}: Found ACTIVE Token #${active.tokenNumber} served by Desk ${active.servedByDeskId}`);
+
       }
 
       return createResponse(res, 'ok', 'Servicing Tokens', enrichedTokens);
@@ -556,7 +556,7 @@ class TokenController {
     try {
       const { user } = req;
       const { tokenNumber } = req.body;
-      console.log(tokenNumber, "tokenNumber1");
+
 
 
       if (!tokenNumber || isNaN(tokenNumber)) {
@@ -582,9 +582,7 @@ class TokenController {
         return createError(res, { message: 'Unauthorized' }, 403);
       }
 
-      // if (token.queue.merchant !== user.id) {
-      //   return createError(res, { message: 'Unauthorized' }, 403);
-      // }
+
 
       // Step 2: Get current "now serving" token number
       const currentServingToken = await Token.findOne({
@@ -627,7 +625,7 @@ class TokenController {
           { model: Queue, as: 'queue', attributes: ['name'] }
         ]
       });
-      console.log(updatedToken, "updatedToken1");
+
 
 
       return createResponse(res, 'ok', 'Token recovered and re-queued', {
@@ -635,7 +633,7 @@ class TokenController {
         oldTokenNumber: parseInt(tokenNumber),
         newTokenNumber: updatedToken.tokenNumber,
         status: 'PENDING',
-        // customerName: `${updatedToken.customer.FirstName} ${updatedToken.customer.LastName}`.trim()
+
       });
 
     } catch (e) {
@@ -668,12 +666,12 @@ class TokenController {
         });
 
         if (!token) {
-          console.log(`[AUTH] completeToken FAILED: Token ID ${id} not found`);
+
           errors.push({ id, error: "Token not found" });
           continue;
         }
 
-        console.log(`[AUTH] completeToken called by User ID: ${user.id} (Role: ${user.role}) for Token ID: ${id}`);
+
 
         let isAuthorized = false;
         if (user.role === 'desk') {
@@ -867,66 +865,7 @@ class TokenController {
       return createError(res, { message: "Server error" });
     }
   }
-  //  async sendNotificationNextToken(queueId, categoryId) {
-  //   try {
-  //     const tokens = await Token.findAll({
-  //       where: {
-  //         queueId,
-  //         categoryId,
-  //         // isSkipped: false,
-  //         status: 'PENDING',
-  //       },
-  //       include: [{ model: User, attributes: ['fcmToken', 'firstName', 'lastName'], as: 'customer' }],
-  //       order: [['tokenNumber', 'ASC']],
-  //     });
 
-  //     console.log(tokens, "tokez123");
-
-  //     // if (tokens.length < 3) {
-  //     //   return res.json({ message: 'Less than 3 tokens, no notification sent' });
-  //     // }
-
-  //     const thirdToken = tokens[0];
-  //     const user = thirdToken.customer;
-  //     console.log(user, "userfcm123");
-
-  //     if (!user?.fcmToken) {
-  //       return { message: 'No FCM token for user', tokenNumber: thirdToken.tokenNumber };
-  //     }
-
-  //     const message = {
-  //       token: user.fcmToken,
-  //       notification: {
-  //         title: 'Your turn has arrived!',
-  //         body: `Token ${thirdToken.tokenNumber} - Please come now!`,
-  //       },
-  //       data: {
-  //         type: 'turn_approaching',
-  //         tokenNumber: thirdToken.tokenNumber.toString(),
-  //         queueId: queueId.toString(),
-  //       },
-  //       android: {
-  //         priority: 'high',
-  //         notification: {
-  //           sound: 'default',
-  //           channelId: 'queue_alert',
-  //         },
-  //       },
-  //     };
-
-
-  //     await admin.messaging().send(message);
-  //     return {
-  //       success: true,
-  //       notifiedToken: thirdToken.tokenNumber,
-  //       customer: `${user.firstName} ${user.lastName}`,
-  //     };
-
-  //   } catch (error) {
-  //     console.error('FCM Error:', error.message);
-  //     return { error: error.message };
-  //   }
-  // }
 
   /**
    * @description get merchant analytics
@@ -985,22 +924,15 @@ class TokenController {
       });
       const totalServed = tokensServedToday.length;
 
-      console.log('Total Created Today:', totalCreated);
-      console.log('Total Served Today:', totalServed);
+
+
 
       // Completion Rate: (Served Today / Created Today) * 100
       // If no new tokens created but we served backlog customers, rate should be 100% (or reflects high productivity)
       const completionRate = totalCreated > 0 ? Math.round((totalServed / totalCreated) * 100) : (totalServed > 0 ? 100 : 0);
 
       // Avg Wait Time (using proxy: completedAt - createdAt for tokens SERVED today)
-      // let totalWaitTime = 0;
-      // tokensServedToday.forEach(t => {
-      //   if (t.createdAt && t.completedAt) {
-      //     const diff = moment(t.completedAt).diff(moment(t.createdAt), 'minutes');
-      //     totalWaitTime += diff;
-      //   }
-      // });
-      // const avgWaitTime = totalServed > 0 ? Math.round(totalWaitTime / totalServed) : 0;
+
       const avgWaitTime = 15; // Static 15 min as requested
 
       // Peak Hour calculation based on Service Time (Throughput)

@@ -92,7 +92,7 @@ class QueueController {
         return createError(res, { message: `You don't have access to update queue.` });
 
       const queue = await Queue.findOne({ where: { id, merchant: user.id } });
-      console.log(queue, "Queue not found");
+
 
       if (!queue) {
         return createError(res, { message: 'Queue not found' });
@@ -253,7 +253,7 @@ class QueueController {
       const { user } = req;
       const { id } = req.params;
       const queue = await service.getSingleQueue(user.id, id);
-      // if (item) return createResponse(res, 'ok', 'Queue', item);
+
       if (queue) {
         const tokens = await Token.findAll({
           where: { queueId: queue.id },
@@ -509,7 +509,7 @@ class QueueController {
   // --- Desk CRUD ---
 
   async createDesk(req, res) {
-    console.log("hello desk", req.body);
+
 
     try {
       const { user } = req;

@@ -128,6 +128,24 @@ router.post('/save-fcm-token', [
     res.status(500).json({ error: err.message });
   }
 });
+/**
+ * @route POST api/auth/delete-account
+ * @description Delete user account
+ * @returns JSON
+ * @access private
+ */
+router.post(
+  '/delete-account',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => {
+    AuthController.deleteAccount(req, res);
+  }
+);
+
 // contactus route
 router.post(
   "/contact-us",

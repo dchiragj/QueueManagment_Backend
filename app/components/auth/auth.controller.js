@@ -164,10 +164,19 @@ class AuthController {
       );
 
       return createResponse(res, "ok", "Contact details submitted successfully");
-
     } catch (e) {
       console.log(e);
       return createError(res, e);
+    }
+  }
+
+  async deleteAccount(req, res) {
+    try {
+      const user = req.user;
+      await UserService.deleteUser(user.id);
+      createResponse(res, 'ok', 'Account deleted successfully');
+    } catch (e) {
+      createError(res, e);
     }
   }
 }

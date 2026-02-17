@@ -3,6 +3,7 @@ const Queue = require('./queue');
 const Token = require('./token');
 const User = require('./user');
 const Business = require('./business');
+const DeletedUser = require('./deletedUser');
 
 // Queue -> Token
 Queue.hasMany(Token, { foreignKey: 'queueId', as: 'tokens' });
@@ -20,4 +21,4 @@ Business.hasMany(Queue, { foreignKey: 'businessId', as: 'queues' });
 Token.belongsTo(User, { foreignKey: 'customerId', as: 'customer' });
 // Token.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 
-module.exports = { Queue, Token, User };
+module.exports = { Queue, Token, User, Business, DeletedUser };

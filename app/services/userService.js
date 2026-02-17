@@ -10,6 +10,7 @@ const sequelize = require('../config/database');
 const path = require('path');
 const fs = require('fs');
 const Business = require('../models/business');
+const DeletedUser = require('../models/deletedUser');
 
 const get6DigCode = () => {
   return Math.floor(100000 + Math.random() * 900000);
@@ -653,6 +654,33 @@ class UserService {
     } catch (err) {
       console.error('updateUserProfile error:', err.message, 'Stack:', err.stack);
       throw new Error(err.message || 'Failed to update user profile');
+    }
+  }
+
+  async deleteUser(user_id) {
+    const transaction = await sequelize.transaction();
+    try {
+      const user = await User.findByPk(user_id, { transaction });
+      if (!user) throw new Error('User not found');
+
+      const userData = user.toJSON();
+      const originalUserId = userData.id;
+      delete userData.id; // Let DeletedUser generate its own id
+
+      await DeletedUser.create({
+        ...userData,
+        originalUserId: originalUserId,
+        isDeleted: true
+      }, { transaction });
+
+      await User.destroy({ where: { id: user_id }, transaction });
+
+      await transaction.commit();
+      return true;
+    } catch (err) {
+      await transaction.rollback();
+      console.error('deleteUser error:', err.message);
+      throw err;
     }
   }
 

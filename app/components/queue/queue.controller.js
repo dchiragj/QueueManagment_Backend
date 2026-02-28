@@ -615,6 +615,132 @@ class QueueController {
       return createError(res, e);
     }
   }
+
+  /**
+   * @description Search queues by business name (for customers)
+   * Finds businesses matching the name and returns their active queues
+   */
+  /**
+   * @description Get all active queues for a specific business
+   */
+  async getQueuesByBusiness(req, res) {
+    try {
+      const { businessId } = req.params;
+      const { Op } = require('sequelize');
+
+      const queues = await Queue.findAll({
+        where: {
+          businessId,
+          isCancelled: { [Op.or]: [false, null] }
+        },
+        include: [
+          {
+            model: Business,
+            as: 'branch',
+            attributes: ['id', 'businessName', 'businessAddress', 'businessPhoneNumber', 'placeid']
+          },
+          {
+            model: Desk,
+            as: 'desks',
+            attributes: ['id', 'name'],
+            through: { attributes: [] }
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+
+      // Transform to match frontend expectations (business field instead of branch alias)
+      const result = queues.map(q => {
+        const data = q.toJSON();
+        return {
+          ...data,
+          business: data.branch || null
+        };
+      });
+
+      return createResponse(res, 'ok', 'Business Queues', result);
+    } catch (e) {
+      console.error('getQueuesByBusiness error:', e);
+      return createError(res, e);
+    }
+  }
+
+  /**
+   * @description Search queues by business name (for customers)
+   * Finds businesses matching the name and returns their active queues
+   */
+  async searchQueuesByBusiness(req, res) {
+    try {
+      const { businessName, placeid } = req.query;
+      const { Op } = require('sequelize');
+
+      console.log('--- Business Search Debug ---');
+      console.log('Query Params:', { businessName, placeid });
+
+      if (!businessName || businessName.trim().length < 2) {
+        return createResponse(res, 'ok', 'Results', []);
+      }
+
+      let matchedBusinesses = [];
+
+      // 1. Try exact placeid match first
+      if (placeid && placeid.trim()) {
+        matchedBusinesses = await Business.findAll({
+          where: { placeid: placeid.trim() },
+          attributes: ['id', 'businessName', 'businessAddress', 'businessPhoneNumber', 'placeid']
+        });
+        console.log('PlaceID Match Count:', matchedBusinesses.length);
+      }
+
+      // 2. Fallback: search by business name (Fuzzy)
+      if (!matchedBusinesses || matchedBusinesses.length === 0) {
+        const searchTerms = businessName.trim().split(/[\s,]+/);
+        const mainTerm = searchTerms[0];
+
+        matchedBusinesses = await Business.findAll({
+          where: {
+            [Op.or]: [
+              { businessName: { [Op.like]: `%${mainTerm}%` } },
+              { businessName: { [Op.like]: `%${businessName.trim()}%` } }
+            ]
+          },
+          attributes: ['id', 'businessName', 'businessAddress', 'businessPhoneNumber', 'placeid']
+        });
+        console.log('Name Match Count:', matchedBusinesses.length, 'Main Term:', mainTerm);
+      }
+
+      if (!matchedBusinesses || matchedBusinesses.length === 0) {
+        return createResponse(res, 'ok', 'Results', []);
+      }
+
+      const businessIds = matchedBusinesses.map(b => b.id);
+      const businessMap = {};
+      matchedBusinesses.forEach(b => { businessMap[b.id] = b.toJSON(); });
+
+      // 3. Fetch all non-cancelled queues for matched businesses
+      const queues = await Queue.findAll({
+        where: {
+          businessId: { [Op.in]: businessIds },
+          isCancelled: { [Op.or]: [false, null, 0] }
+        },
+        attributes: ['id', 'name', 'description', 'businessId', 'joinMethods', 'status', 'isActive', 'start_number', 'end_number', 'start_date', 'end_date', 'category'],
+        order: [['createdAt', 'DESC']]
+      });
+
+      console.log('Found Queues Count:', queues.length);
+
+      // 4. Attach business info
+      const result = queues.map(q => ({
+        ...q.toJSON(),
+        business: businessMap[q.businessId] || null
+      }));
+
+      return createResponse(res, 'ok', 'Search Results', result);
+    } catch (e) {
+      console.error('searchQueuesByBusiness error:', e);
+      return createError(res, e);
+    }
+  }
 }
 
 const queueController = new QueueController();

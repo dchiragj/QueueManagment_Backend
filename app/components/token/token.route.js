@@ -289,7 +289,8 @@ router.post(
           "queueId": queue.id,
           "queueName": queue.name,
           "tokenRange": `${queue.start_number} to ${queue.end_number}`,
-          "category": queue.category
+          "category": queue.category,
+          "categoryName": queue.categ?.name || 'Unknown'
         });
       }
       if (existingToken.status === 'SKIPPED') {
@@ -318,6 +319,7 @@ router.post(
         status: existingToken.status,
         createdAt: existingToken.createdAt,
         categoryId: existingToken.categoryId,
+        categoryName: queue.categ?.name || 'Unknown'
       }, 200);
     } catch (e) {
       console.error('Check token error:', e.message, e.stack);

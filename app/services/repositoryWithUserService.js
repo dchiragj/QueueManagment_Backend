@@ -3,6 +3,23 @@ const Queue = require('../models/queue');
 const { isEmpty } = require('../utils/validator');
 const { Op } = require('sequelize');
 const User = require('../models/user');
+const { RADIUS } = require('../config/constants');
+
+// Haversine formula to calculate distance in meters
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // Earth's radius in meters
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
 
 class RepositoryWithUserService {
   constructor(collection) {
@@ -119,18 +136,26 @@ class RepositoryWithUserService {
 
         case 'location':
           if (!lat || !long) throw new Error('lat & long are required for location join');
-          // Fetch all queues and pick nearest (for simplicity)
-          const allQueues = await Queue.findAll({
-            where: { isActive: true, isCancelled: false },
-          });
-          if (!allQueues.length) return undefined;
 
-          // Simple nearest match (you can replace with haversine)
-          const nearest = allQueues.reduce((closest, q) => {
-            const dist = Math.sqrt(
-              Math.pow(q.latitude - lat, 2) + Math.pow(q.longitude - long, 2)
-            );
-            return !closest || dist < closest.dist ? { queue: q, dist } : closest;
+          // Fetch queues that support location-based join
+          const availableQueues = await Queue.findAll({
+            where: {
+              isActive: true,
+              isCancelled: false,
+              joinMethods: { [Op.like]: '%location%' } // Ensure it supports location join
+            },
+          });
+
+          if (!availableQueues.length) return undefined;
+
+          // Find the nearest queue within the allowed RADIUS
+          const nearest = availableQueues.reduce((closest, q) => {
+            const dist = calculateDistance(q.latitude, q.longitude, lat, long);
+
+            if (dist <= RADIUS) {
+              return !closest || dist < closest.dist ? { queue: q, dist } : closest;
+            }
+            return closest;
           }, null);
 
           return nearest?.queue?.toJSON() ?? undefined;
@@ -160,6 +185,11 @@ class RepositoryWithUserService {
             model: User,
             as: 'merchantUser',
             attributes: ['id', 'FirstName', 'LastName', 'email'],
+          },
+          {
+            model: require('../models/category'),
+            as: 'categ',
+            attributes: ['id', 'name'],
           },
         ],
       });

@@ -153,8 +153,8 @@ User.prototype.toAuthJSON = function () {
     isActive: this.isActive,
     role: this.role,
     ProfileUrl: profileUrl,   // 👈 backend URL
-    gender:this.gender,
-    address:this.address,
+    gender: this.gender,
+    address: this.address,
     token: `${this.createToken()}`,
     verificationRequired: !this.isEmailVerified,
     onboardingRequired: this.isOnboarding,
@@ -163,7 +163,7 @@ User.prototype.toAuthJSON = function () {
     // businessRegistrationNumber: this.businessRegistrationNumber || null,
     // businessPhone: this.businessPhone || null,
 
-    
+
   };
 };
 

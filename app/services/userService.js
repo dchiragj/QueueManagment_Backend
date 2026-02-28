@@ -455,26 +455,36 @@ class UserService {
   async verifyOtp(email, otp) {
     try {
       const normalized_username = String(email).toUpperCase().trim();
-      // Use Sequelize literal to handle date comparison properly
+
       const userResult = await User.findOne({
         where: {
-          [Op.and]: [
-            { [Op.or]: [{ email }, { NormalizedEmail: normalized_username }] },
-            { Otp: otp },
-            sequelize.where(
-              sequelize.col('OtpExpiry'),
-              { [Op.gt]: sequelize.fn('GETDATE') }
-            )
-          ],
+          [Op.or]: [{ email }, { NormalizedEmail: normalized_username }]
         },
       });
+
       if (!userResult) {
+        console.log('User not found');
         throw new Error("Invalid or expired OTP");
       }
 
+      // Manual match check
+      if (String(userResult.Otp) !== String(otp)) {
+        console.log('OTP mismatch');
+        throw new Error("Invalid OTP");
+      }
+
+      // Manual expiry check in Node.js
+      const currentTime = new Date();
+      const expiryTime = new Date(userResult.OtpExpiry);
+      if (expiryTime < currentTime) {
+        console.log('OTP expired');
+        throw new Error("Expired OTP");
+      }
+
+      console.log('OTP verified successfully');
       return { success: true, userId: userResult.id };
     } catch (error) {
-      console.error("verifyOtp error:", error);
+      console.error("verifyOtp error:", error.message);
       throw error;
     }
   }

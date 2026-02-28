@@ -7,15 +7,18 @@ class AuthenticationValidator {
    */
   signIn(req, res, next) {
     const errors = {};
-    const { username, password, role } = req.body;
+    const { username, password } = req.body;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (isEmpty(username)) {
       errors.username = 'Username is required';
+    } else if (!emailRegex.test(username)) {
+      errors.username = 'Please provide a valid email address';
     }
+
     if (isEmpty(password)) {
       errors.password = 'Password is required';
     }
-
 
     if (Object.keys(errors).length > 0) {
       createValidationResponse(res, errors);
@@ -25,23 +28,57 @@ class AuthenticationValidator {
   }
 
   /**
-   * @description Validate Sign in
+   * @description Validate Sign up
    */
   signUp(req, res, next) {
     const errors = {};
-    const { firstName, lastName, email, password, mobileNumber, role } = req.body;
+    const {
+      firstName, lastName, email, password, mobileNumber, role,
+      businessName, businessAddress, businessPhone
+    } = req.body;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[0-9]{10}$/;
+
     if (isEmpty(firstName)) {
       errors.firstName = 'First name is required';
-    } else if (isEmpty(lastName)) {
+    }
+    if (isEmpty(lastName)) {
       errors.lastName = 'Last name is required';
-    } else if (isEmpty(email)) {
+    }
+
+    if (isEmpty(email)) {
       errors.email = 'Email is required';
-    } else if (isEmpty(password)) {
+    } else if (!emailRegex.test(email)) {
+      errors.email = 'Please provide a valid email address';
+    }
+
+    if (isEmpty(password)) {
       errors.password = 'Password is required';
-    } else if (isEmpty(mobileNumber)) {
+    }
+
+    if (isEmpty(mobileNumber)) {
       errors.mobileNumber = 'Mobile Number is required';
-    } else if (isEmpty(role)) {
+    } else if (!phoneRegex.test(mobileNumber)) {
+      errors.mobileNumber = 'Please provide a valid 10-digit mobile number';
+    }
+
+    if (isEmpty(role)) {
       errors.role = 'User type merchant/customer is required';
+    }
+
+    if (role === 'merchant' || role === 'both') {
+      if (isEmpty(businessName)) {
+        errors.businessName = 'Business Name is required';
+      }
+      if (isEmpty(businessAddress)) {
+        errors.businessAddress = 'Business Address is required';
+      }
+      if (isEmpty(businessPhone)) {
+        errors.businessPhone = 'Business Phone is required';
+      } else if (!phoneRegex.test(businessPhone)) {
+        errors.businessPhone = 'Please provide a valid 10-digit business phone number';
+      }
     }
 
     if (Object.keys(errors).length > 0) {

@@ -48,7 +48,7 @@ const queueClenup = async () => {
 }
 
 const queueClenupJob = () => {
-        console.log("📌 cron.js loaded");
+    console.log("📌 cron.js loaded");
     cron.schedule('0 0 0 * * *', async () => {
         console.log("🧹 Running scheduled queue cleanup job at midnight...");
         try {

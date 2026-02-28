@@ -37,6 +37,20 @@ const Business = sequelize.define('Business', {
         allowNull: false,
         defaultValue: true,
     },
+    placeid: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+    },
+    latitude: {
+        type: DataTypes.DOUBLE,
+        allowNull: true,
+        defaultValue: 0,
+    },
+    longitude: {
+        type: DataTypes.DOUBLE,
+        allowNull: true,
+        defaultValue: 0,
+    },
 })
 
 // Associations

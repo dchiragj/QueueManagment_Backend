@@ -297,11 +297,16 @@ class QueueService extends RepositoryWithUserService {
         emailText += `This QR code can be scanned on any phone – no app is required!\n`;
 
         // 7. SEND EMAIL
+        let locationInfo = '';
+        if (item.latitude && item.longitude) {
+          locationInfo = `\n**Location Coordinates:**\nLat: ${item.latitude}\nLong: ${item.longitude}\nGoogle Maps: https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}\n`;
+        }
+
         const mailOptions = {
           from: process.env.EMAIL_USER,
           to: userEmail,
           subject: `Queue created – ${item.name}`,
-          text: emailText,
+          text: emailText + locationInfo,
           attachments,
         };
 

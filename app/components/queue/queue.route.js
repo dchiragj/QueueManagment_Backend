@@ -179,6 +179,36 @@ router.get(
  * @returns JSON
  * @access public
  */
+/**
+ * @route GET api/queue/search-by-business
+ * @description Search queues by business name (for customers)
+ * @access private (JWT required)
+ */
+router.get(
+  '/search-by-business',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.searchQueuesByBusiness(req, res)
+);
+
+/**
+ * @route GET api/queue/by-business/:businessId
+ * @description Get queues for a specific business
+ * @access private (JWT required)
+ */
+router.get(
+  '/by-business/:businessId',
+  [
+    passport.authenticate('jwt', { session: false, failWithError: true }),
+    PassportErrorHandler.success,
+    PassportErrorHandler.error,
+  ],
+  (req, res) => controller.getQueuesByBusiness(req, res)
+);
+
 router.get(
   '/:type',
   [
